@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Face Tagger</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #fafafa;
+            color: #171717;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #666666;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* Upload area */
+        .upload-area {
+            background: #ffffff;
+            border: 2px dashed #d4d4d4;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .upload-area:hover, .upload-area:active {
+            border-color: #171717;
+            background: #f7f7f7;
+        }
+
+        .upload-area svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            color: #737373;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: #737373;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* Loading state */
+        .loading {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e5e5e5;
+            border-top-color: #171717;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 18px;
+            color: #525252;
+        }
+
+        /* Photo workspace */
+        .workspace {
+            display: none;
+        }
+
+        .workspace.active {
+            display: block;
+        }
+
+        .photo-container {
+            position: relative;
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        #photo-canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        /* Face boxes overlay */
+        .face-boxes {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .face-box {
+            position: absolute;
+            border: 3px solid #0070f3;
+            border-radius: 4px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: border-color 0.15s ease;
+        }
+
+        .face-box.labeled {
+            border-color: #46a758;
+        }
+
+        .face-box:active {
+            border-color: #0060d1;
+        }
+
+        .face-number {
+            position: absolute;
+            top: -12px;
+            left: -12px;
+            width: 28px;
+            height: 28px;
+            background: #0070f3;
+            color: #ffffff;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .face-box.labeled .face-number {
+            background: #46a758;
+        }
+
+        .face-label {
+            position: absolute;
+            bottom: -32px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #171717;
+            color: #ffffff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Instructions */
+        .instructions {
+            background: #f7f7f7;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 16px;
+            color: #525252;
+            text-align: center;
+        }
+
+        /* Action buttons */
+        .actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            flex: 1;
+            background: #171717;
+            color: #ffffff;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            background: #333333;
+        }
+
+        button:active {
+            background: #404040;
+        }
+
+        button:disabled {
+            background: #a3a3a3;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: #ffffff;
+            color: #171717;
+            border: 1px solid #e5e5e5;
+        }
+
+        button.secondary:hover {
+            background: #f7f7f7;
+        }
+
+        button svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Modal overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 340px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .modal h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .modal p {
+            font-size: 16px;
+            color: #666666;
+            margin-bottom: 20px;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            font-size: 18px;
+            margin-bottom: 16px;
+            transition: border-color 0.15s ease;
+        }
+
+        .modal input:focus {
+            outline: none;
+            border-color: #171717;
+        }
+
+        .modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .modal button {
+            width: 100%;
+        }
+
+        .modal button.unknown {
+            background: #737373;
+        }
+
+        .modal button.clear {
+            background: #e5484d;
+        }
+
+        /* No faces message */
+        .no-faces {
+            background: #fff7ed;
+            border: 1px solid #f5a623;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .no-faces-text {
+            font-size: 16px;
+            color: #9a6700;
+        }
+
+        /* Status bar */
+        .status-bar {
+            background: #f7f7f7;
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #525252;
+            text-align: center;
+        }
+
+        .status-bar.success {
+            background: #ecfdf5;
+            color: #166534;
+        }
+
+        /* Hidden canvas for export */
+        #export-canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Face Tagger</h1>
+        <p class="subtitle">Add names to faces in your photos</p>
+
+        <!-- Upload screen -->
+        <div id="upload-screen">
+            <div class="upload-area" id="upload-area">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <div class="upload-text">Tap to select a photo</div>
+                <div class="upload-hint">or take a new one with your camera</div>
+            </div>
+            <input type="file" id="file-input" accept="image/*">
+        </div>
+
+        <!-- Loading screen -->
+        <div id="loading-screen" style="display: none;">
+            <div class="loading">
+                <div class="spinner"></div>
+                <div class="loading-text" id="loading-text">Getting ready...</div>
+            </div>
+        </div>
+
+        <!-- Workspace -->
+        <div id="workspace" class="workspace">
+            <div class="photo-container">
+                <canvas id="photo-canvas"></canvas>
+                <div class="face-boxes" id="face-boxes"></div>
+            </div>
+
+            <div id="no-faces" class="no-faces" style="display: none;">
+                <div class="no-faces-text">No faces found in this photo. Try another one?</div>
+            </div>
+
+            <div id="instructions" class="instructions">
+                Tap each face to add a name
+            </div>
+
+            <div id="status-bar" class="status-bar" style="display: none;"></div>
+
+            <div class="actions">
+                <button class="secondary" id="new-photo-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    New Photo
+                </button>
+                <button id="share-btn" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                    Share
+                </button>
+            </div>
+        </div>
+
+        <!-- Name entry modal -->
+        <div class="modal-overlay" id="modal-overlay">
+            <div class="modal">
+                <h2>Who is this?</h2>
+                <p>Face #<span id="modal-face-number">1</span></p>
+                <input type="text" id="name-input" placeholder="Enter name" autocomplete="off" autocapitalize="words">
+                <div class="modal-buttons">
+                    <button id="save-name-btn">Save Name</button>
+                    <button class="unknown" id="unknown-btn">Mark as Unknown</button>
+                    <button class="clear secondary" id="clear-btn" style="display: none;">Clear Name</button>
+                    <button class="secondary" id="cancel-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="export-canvas"></canvas>
+
+    <script>
+        // State
+        let faces = [];
+        let currentFaceIndex = null;
+        let originalImage = null;
+        let imageWidth = 0;
+        let imageHeight = 0;
+        let displayScale = 1;
+        let modelLoaded = false;
+
+        // DOM elements
+        const uploadScreen = document.getElementById('upload-screen');
+        const loadingScreen = document.getElementById('loading-screen');
+        const loadingText = document.getElementById('loading-text');
+        const workspace = document.getElementById('workspace');
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const photoCanvas = document.getElementById('photo-canvas');
+        const faceBoxesContainer = document.getElementById('face-boxes');
+        const noFacesMessage = document.getElementById('no-faces');
+        const instructions = document.getElementById('instructions');
+        const statusBar = document.getElementById('status-bar');
+        const shareBtn = document.getElementById('share-btn');
+        const newPhotoBtn = document.getElementById('new-photo-btn');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalFaceNumber = document.getElementById('modal-face-number');
+        const nameInput = document.getElementById('name-input');
+        const saveNameBtn = document.getElementById('save-name-btn');
+        const unknownBtn = document.getElementById('unknown-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const exportCanvas = document.getElementById('export-canvas');
+
+        // Initialize
+        async function init() {
+            // Set up event listeners
+            uploadArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            newPhotoBtn.addEventListener('click', resetToUpload);
+            shareBtn.addEventListener('click', handleShare);
+            saveNameBtn.addEventListener('click', saveName);
+            unknownBtn.addEventListener('click', markUnknown);
+            clearBtn.addEventListener('click', clearName);
+            cancelBtn.addEventListener('click', closeModal);
+            nameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') saveName();
+            });
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) closeModal();
+            });
+        }
+
+        // Load face-api models
+        async function loadModels() {
+            if (modelLoaded) return;
+
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
+
+            try {
+                await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+                modelLoaded = true;
+            } catch (error) {
+                console.error('Failed to load face detection model:', error);
+                throw new Error('Could not load face detection. Please check your internet connection.');
+            }
+        }
+
+        // Handle file selection
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showLoading('Loading your photo...');
+
+            try {
+                // Load image
+                originalImage = await loadImage(file);
+
+                // Load models if needed
+                showLoading('Finding faces...');
+                await loadModels();
+
+                // Detect faces
+                const detections = await detectFaces(originalImage);
+
+                // Process results
+                faces = detections.map((det, index) => ({
+                    index: index,
+                    box: expandBoxPortrait(det.box),
+                    confidence: det.score,
+                    name: null
+                }));
+
+                // Show workspace
+                showWorkspace();
+
+            } catch (error) {
+                console.error('Error processing image:', error);
+                alert(error.message || 'Something went wrong. Please try again.');
+                resetToUpload();
+            }
+        }
+
+        // Load image with EXIF orientation handling
+        function loadImage(file) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('Could not load this image'));
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // Detect faces in image
+        async function detectFaces(img) {
+            const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+            const detections = await faceapi.detectAllFaces(img, options);
+            return detections;
+        }
+
+        // Expand bounding box for portrait framing
+        function expandBoxPortrait(box, { top = 0.7, bottom = 1.0, sides = 0.4 } = {}) {
+            const expanded = {
+                x: box.x - box.width * sides,
+                y: box.y - box.height * top,
+                width: box.width * (1 + sides * 2),
+                height: box.height * (1 + top + bottom)
+            };
+            return clampBox(expanded, originalImage.width, originalImage.height);
+        }
+
+        // Clamp box to image bounds
+        function clampBox(box, imgWidth, imgHeight) {
+            const x = Math.max(0, box.x);
+            const y = Math.max(0, box.y);
+            return {
+                x: x,
+                y: y,
+                width: Math.min(box.width, imgWidth - x),
+                height: Math.min(box.height, imgHeight - y)
+            };
+        }
+
+        // Show loading screen
+        function showLoading(message) {
+            uploadScreen.style.display = 'none';
+            workspace.classList.remove('active');
+            loadingScreen.style.display = 'block';
+            loadingText.textContent = message;
+        }
+
+        // Show workspace with photo and face boxes
+        function showWorkspace() {
+            loadingScreen.style.display = 'none';
+            uploadScreen.style.display = 'none';
+            workspace.classList.add('active');
+
+            // Draw photo to canvas
+            imageWidth = originalImage.width;
+            imageHeight = originalImage.height;
+
+            // Set canvas size to match container width
+            const containerWidth = photoCanvas.parentElement.clientWidth;
+            displayScale = containerWidth / imageWidth;
+
+            photoCanvas.width = containerWidth;
+            photoCanvas.height = imageHeight * displayScale;
+
+            const ctx = photoCanvas.getContext('2d');
+            ctx.drawImage(originalImage, 0, 0, photoCanvas.width, photoCanvas.height);
+
+            // Show face boxes or no-faces message
+            if (faces.length === 0) {
+                noFacesMessage.style.display = 'block';
+                instructions.style.display = 'none';
+                shareBtn.disabled = true;
+            } else {
+                noFacesMessage.style.display = 'none';
+                instructions.style.display = 'block';
+                renderFaceBoxes();
+                updateShareButton();
+            }
+        }
+
+        // Render face boxes
+        function renderFaceBoxes() {
+            faceBoxesContainer.innerHTML = '';
+
+            faces.forEach((face, index) => {
+                const box = face.box;
+                const boxEl = document.createElement('div');
+                boxEl.className = 'face-box' + (face.name ? ' labeled' : '');
+                boxEl.style.left = (box.x * displayScale) + 'px';
+                boxEl.style.top = (box.y * displayScale) + 'px';
+                boxEl.style.width = (box.width * displayScale) + 'px';
+                boxEl.style.height = (box.height * displayScale) + 'px';
+
+                // Face number
+                const numberEl = document.createElement('div');
+                numberEl.className = 'face-number';
+                numberEl.textContent = index + 1;
+                boxEl.appendChild(numberEl);
+
+                // Name label
+                if (face.name) {
+                    const labelEl = document.createElement('div');
+                    labelEl.className = 'face-label';
+                    labelEl.textContent = face.name;
+                    boxEl.appendChild(labelEl);
+                }
+
+                // Click handler
+                boxEl.addEventListener('click', () => openModal(index));
+
+                faceBoxesContainer.appendChild(boxEl);
+            });
+        }
+
+        // Open modal for face
+        function openModal(index) {
+            currentFaceIndex = index;
+            const face = faces[index];
+
+            modalFaceNumber.textContent = index + 1;
+            nameInput.value = face.name || '';
+            clearBtn.style.display = face.name ? 'block' : 'none';
+
+            modalOverlay.classList.add('active');
+            nameInput.focus();
+        }
+
+        // Close modal
+        function closeModal() {
+            modalOverlay.classList.remove('active');
+            currentFaceIndex = null;
+        }
+
+        // Save name
+        function saveName() {
+            const name = nameInput.value.trim();
+            if (name && currentFaceIndex !== null) {
+                faces[currentFaceIndex].name = name;
+                renderFaceBoxes();
+                updateShareButton();
+            }
+            closeModal();
+        }
+
+        // Mark as unknown
+        function markUnknown() {
+            if (currentFaceIndex !== null) {
+                faces[currentFaceIndex].name = 'Unknown';
+                renderFaceBoxes();
+                updateShareButton();
+            }
+            closeModal();
+        }
+
+        // Clear name
+        function clearName() {
+            if (currentFaceIndex !== null) {
+                faces[currentFaceIndex].name = null;
+                renderFaceBoxes();
+                updateShareButton();
+            }
+            closeModal();
+        }
+
+        // Update share button state
+        function updateShareButton() {
+            const hasAnyNames = faces.some(f => f.name);
+            shareBtn.disabled = !hasAnyNames;
+        }
+
+        // Handle share
+        async function handleShare() {
+            showStatus('Creating your image...');
+
+            try {
+                // Generate annotated image
+                const blob = await generateAnnotatedImage();
+
+                // Try Web Share API
+                if (navigator.share && navigator.canShare) {
+                    const file = new File([blob], 'tagged-photo.jpg', { type: 'image/jpeg' });
+                    const shareData = { files: [file] };
+
+                    if (navigator.canShare(shareData)) {
+                        await navigator.share(shareData);
+                        showStatus('Shared!', true);
+                        return;
+                    }
+                }
+
+                // Fallback: download
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'tagged-photo.jpg';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showStatus('Image downloaded!', true);
+
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Share failed:', error);
+                    showStatus('Could not share. Try again.');
+                } else {
+                    hideStatus();
+                }
+            }
+        }
+
+        // Generate annotated image
+        function generateAnnotatedImage() {
+            return new Promise((resolve) => {
+                exportCanvas.width = imageWidth;
+                exportCanvas.height = imageHeight;
+
+                const ctx = exportCanvas.getContext('2d');
+
+                // Draw original image
+                ctx.drawImage(originalImage, 0, 0);
+
+                // Draw boxes and labels
+                faces.forEach((face, index) => {
+                    if (!face.name) return;
+
+                    const box = face.box;
+                    const lineWidth = Math.max(3, Math.round(imageWidth / 200));
+                    const fontSize = Math.max(20, Math.round(imageWidth / 30));
+                    const padding = Math.round(fontSize * 0.4);
+                    const numberSize = Math.max(24, Math.round(imageWidth / 25));
+
+                    // Draw box
+                    ctx.strokeStyle = '#46a758';
+                    ctx.lineWidth = lineWidth;
+                    ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+                    // Draw number circle
+                    const circleRadius = numberSize / 2;
+                    ctx.fillStyle = '#46a758';
+                    ctx.beginPath();
+                    ctx.arc(box.x - circleRadius / 2, box.y - circleRadius / 2, circleRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `bold ${Math.round(numberSize * 0.6)}px -apple-system, sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(String(index + 1), box.x - circleRadius / 2, box.y - circleRadius / 2);
+
+                    // Draw name label
+                    ctx.font = `bold ${fontSize}px -apple-system, sans-serif`;
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+
+                    const textWidth = ctx.measureText(face.name).width;
+                    const labelX = box.x;
+                    const labelY = box.y + box.height + lineWidth + 4;
+
+                    // Label background
+                    ctx.fillStyle = '#171717';
+                    ctx.fillRect(labelX, labelY, textWidth + padding * 2, fontSize + padding * 2);
+
+                    // Label text
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(face.name, labelX + padding, labelY + padding);
+                });
+
+                // Convert to blob
+                exportCanvas.toBlob(resolve, 'image/jpeg', 0.92);
+            });
+        }
+
+        // Show status
+        function showStatus(message, success = false) {
+            statusBar.textContent = message;
+            statusBar.className = 'status-bar' + (success ? ' success' : '');
+            statusBar.style.display = 'block';
+
+            if (success) {
+                setTimeout(hideStatus, 3000);
+            }
+        }
+
+        // Hide status
+        function hideStatus() {
+            statusBar.style.display = 'none';
+        }
+
+        // Reset to upload screen
+        function resetToUpload() {
+            faces = [];
+            currentFaceIndex = null;
+            originalImage = null;
+            fileInput.value = '';
+            faceBoxesContainer.innerHTML = '';
+            statusBar.style.display = 'none';
+
+            workspace.classList.remove('active');
+            loadingScreen.style.display = 'none';
+            uploadScreen.style.display = 'block';
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

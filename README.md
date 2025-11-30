@@ -7,6 +7,7 @@ Publicly available tools hosted on GitHub Pages.
 ## Available Tools
 
 - [Hello World](https://rkpatel33.github.io/tools/hello-world.html) - A simple greeting tool
+- [Face Tagger](https://rkpatel33.github.io/tools/face-tagger.html) - Add names to faces in photos and share
 
 ## Adding a new tool
 
