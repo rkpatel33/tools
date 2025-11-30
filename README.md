@@ -6,7 +6,7 @@ Publicly available tools hosted on GitHub Pages.
 
 ## Available Tools
 
-- [Hello World](hello-world.html) - A simple greeting tool
+- [Hello World](https://rkpatel33.github.io/tools/hello-world.html) - A simple greeting tool
 
 ## Adding a new tool
 

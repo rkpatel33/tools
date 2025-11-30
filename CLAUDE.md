@@ -2,6 +2,12 @@
 
 A collection of single-page HTML/CSS/JS tools hosted on GitHub Pages.
 
+## Commit Checklist
+
+When committing changes to HTML tools, **always update README.md** with links to the deployed tools:
+- Format: `[Tool Name](https://rkpatel33.github.io/tools/tool-name.html)`
+- Example: `[Hello World](https://rkpatel33.github.io/tools/hello-world.html)`
+
 ## Project Structure
 
 - Each tool is a standalone `.html` file in the root directory
