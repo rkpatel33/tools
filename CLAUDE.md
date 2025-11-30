@@ -5,8 +5,8 @@ A collection of single-page HTML/CSS/JS tools hosted on GitHub Pages.
 ## Commit Checklist
 
 When committing changes to HTML tools, **always update README.md** with links to the deployed tools:
-- Format: `[Tool Name](https://rkpatel33.github.io/tools/tool-name.html)`
-- Example: `[Hello World](https://rkpatel33.github.io/tools/hello-world.html)`
+- Format: `<a href="https://rkpatel33.github.io/tools/tool-name.html" target="_blank">Tool Name</a>`
+- Links must open in new tabs (`target="_blank"`)
 
 ## Project Structure
 
@@ -19,9 +19,8 @@ When committing changes to HTML tools, **always update README.md** with links to
 
 1. Create `tool-name.html` in the root
 2. Use the visual style guide below for consistency
-3. Add a link to `README.md`
+3. Add a link to `README.md` (must open in new tab)
 4. Commit and push to `master`
-5. Open the tool in a new browser tab for user to test
 
 ---
 
