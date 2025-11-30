@@ -85,6 +85,23 @@
             display: none;
         }
 
+        .recover-link {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 14px;
+            color: #737373;
+        }
+
+        .recover-link a {
+            color: #0070f3;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .recover-link a:hover {
+            text-decoration: underline;
+        }
+
         /* Loading state */
         .loading {
             background: #ffffff;
@@ -469,7 +486,12 @@
                 <div class="upload-text">Tap to select a photo</div>
                 <div class="upload-hint">or take a new one with your camera</div>
             </div>
+            <div class="recover-link" id="recover-link">
+                <span>Have a tagged photo?</span>
+                <a href="#" id="recover-btn">Recover original</a>
+            </div>
             <input type="file" id="file-input" accept="image/*">
+            <input type="file" id="recover-input" accept="image/*" style="display: none;">
         </div>
 
         <!-- Loading screen -->
@@ -543,7 +565,7 @@
     </div>
 
     <canvas id="export-canvas"></canvas>
-    <div class="version-hash">6a4669f</div>
+    <div class="version-hash">recover</div>
 
     <script>
         // State
@@ -582,6 +604,8 @@
         const photoContainer = document.getElementById('photo-container');
         const photoViewport = document.getElementById('photo-viewport');
         const resetZoomBtn = document.getElementById('reset-zoom-btn');
+        const recoverBtn = document.getElementById('recover-btn');
+        const recoverInput = document.getElementById('recover-input');
 
         // Zoom/pan state
         let zoomScale = 1;
@@ -621,6 +645,66 @@
                 enableTransition();
                 resetZoom();
             });
+
+            // Recovery handlers
+            recoverBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                recoverInput.click();
+            });
+            recoverInput.addEventListener('change', handleRecoverSelect);
+        }
+
+        // Handle recovery file selection
+        async function handleRecoverSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                uploadScreen.style.display = 'none';
+                loadingScreen.style.display = 'block';
+                loadingText.textContent = 'Checking for recovery data...';
+
+                const img = await loadImage(file);
+                const detection = detectRecoveryData(img);
+
+                if (!detection.hasRecovery) {
+                    alert('This image does not contain recovery data. It may be an original photo or the recovery data was lost (e.g., from JPEG compression).');
+                    resetToUpload();
+                    return;
+                }
+
+                loadingText.textContent = 'Recovering original...';
+
+                const regions = decodeRecoveryData(img, detection.stripeStartY);
+                const blob = await restoreOriginalImage(img, detection.stripeStartY, regions);
+
+                if (!blob) {
+                    alert('Failed to recover the original image.');
+                    resetToUpload();
+                    return;
+                }
+
+                // Download the recovered image
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'recovered-original.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                // Reset and show success
+                resetToUpload();
+                alert('Original photo recovered and downloaded!');
+
+            } catch (error) {
+                console.error('Recovery failed:', error);
+                alert('Failed to recover the original image. The file may be corrupted.');
+                resetToUpload();
+            }
+
+            recoverInput.value = '';
         }
 
         // Get distance between two touch points
@@ -1021,12 +1105,12 @@
 
                 // Try Web Share API
                 if (navigator.share && navigator.canShare) {
-                    const file = new File([blob], 'tagged-photo.jpg', { type: 'image/jpeg' });
+                    const file = new File([blob], 'tagged-photo.png', { type: 'image/png' });
                     const shareData = { files: [file] };
 
                     if (navigator.canShare(shareData)) {
                         await navigator.share(shareData);
-                        showStatus('Shared!', true);
+                        showStatus('Shared! Original can be recovered from the PNG.', true);
                         return;
                     }
                 }
@@ -1035,12 +1119,12 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'tagged-photo.jpg';
+                a.download = 'tagged-photo.png';
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                showStatus('Image downloaded!', true);
+                showStatus('Downloaded! Original can be recovered from the PNG.', true);
 
             } catch (error) {
                 if (error.name !== 'AbortError') {
@@ -1052,7 +1136,241 @@
             }
         }
 
-        // Generate annotated image with caption bar
+        // Magic marker for recoverable images (specific RGB pattern)
+        const RECOVERY_MAGIC = [82, 69, 67, 79, 86, 69, 82]; // "RECOVER" in ASCII
+
+        // Check if an image has recovery data
+        function detectRecoveryData(img) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            // Scan from bottom for magic marker
+            // The recovery stripe is at the very bottom
+            for (let startY = img.height - 1; startY >= Math.max(0, img.height - 50); startY--) {
+                const imgData = ctx.getImageData(0, startY, RECOVERY_MAGIC.length, 1);
+                let found = true;
+                for (let i = 0; i < RECOVERY_MAGIC.length; i++) {
+                    const idx = i * 4;
+                    // Check if all RGB values match the magic byte
+                    if (imgData.data[idx] !== RECOVERY_MAGIC[i] ||
+                        imgData.data[idx + 1] !== RECOVERY_MAGIC[i] ||
+                        imgData.data[idx + 2] !== RECOVERY_MAGIC[i]) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) {
+                    return { hasRecovery: true, stripeStartY: startY };
+                }
+            }
+            return { hasRecovery: false };
+        }
+
+        // Decode recovery data from image
+        function decodeRecoveryData(img, stripeStartY) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            // Read all pixel data from stripe start to bottom
+            const stripeHeight = img.height - stripeStartY;
+            const imgData = ctx.getImageData(0, stripeStartY, img.width, stripeHeight);
+
+            // Convert to byte array (RGB only)
+            const data = [];
+            for (let i = 0; i < imgData.data.length; i += 4) {
+                data.push(imgData.data[i], imgData.data[i + 1], imgData.data[i + 2]);
+            }
+
+            // Skip magic marker (7 pixels * 3 bytes = 21 bytes)
+            let offset = RECOVERY_MAGIC.length * 3;
+
+            // Read region count
+            const regionCount = data[offset];
+            offset += 3;
+
+            // Read regions
+            const regions = [];
+            for (let i = 0; i < regionCount; i++) {
+                // Decode coordinates (2 bytes each, stored as high, low, high pattern)
+                const decodeCoord = () => {
+                    const high = data[offset];
+                    const low = data[offset + 1];
+                    offset += 3;
+                    return high * 256 + low;
+                };
+
+                const x = decodeCoord();
+                const y = decodeCoord();
+                const width = decodeCoord();
+                const height = decodeCoord();
+
+                // Read pixel data
+                const pixelCount = width * height * 3;
+                const pixels = data.slice(offset, offset + pixelCount);
+                offset += pixelCount;
+
+                regions.push({ x, y, width, height, pixels });
+            }
+
+            return regions;
+        }
+
+        // Restore original image from recovery data
+        function restoreOriginalImage(img, stripeStartY, regions) {
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = stripeStartY; // Crop off everything from stripe down
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+
+                // Apply recovery regions
+                regions.forEach(region => {
+                    if (region.x >= canvas.width || region.y >= canvas.height) return;
+
+                    const imgData = ctx.createImageData(region.width, region.height);
+                    for (let i = 0; i < region.pixels.length; i += 3) {
+                        const pixelIndex = Math.floor(i / 3);
+                        const idx = pixelIndex * 4;
+                        imgData.data[idx] = region.pixels[i];
+                        imgData.data[idx + 1] = region.pixels[i + 1];
+                        imgData.data[idx + 2] = region.pixels[i + 2];
+                        imgData.data[idx + 3] = 255;
+                    }
+                    ctx.putImageData(imgData, region.x, region.y);
+                });
+
+                // Find where the caption bar starts (scan up from stripe for black bar)
+                // The caption bar is #171717 = rgb(23, 23, 23)
+                let captionBarStart = stripeStartY;
+                for (let y = stripeStartY - 1; y >= 0; y--) {
+                    const pixel = ctx.getImageData(0, y, 1, 1).data;
+                    // Check for black/near-black caption bar
+                    if (pixel[0] <= 30 && pixel[1] <= 30 && pixel[2] <= 30) {
+                        captionBarStart = y;
+                    } else {
+                        break;
+                    }
+                }
+
+                // Create final canvas with just the original image (no caption bar)
+                const finalCanvas = document.createElement('canvas');
+                finalCanvas.width = img.width;
+                finalCanvas.height = captionBarStart;
+                const finalCtx = finalCanvas.getContext('2d');
+                finalCtx.drawImage(canvas, 0, 0);
+
+                finalCanvas.toBlob(resolve, 'image/png', 1.0);
+            });
+        }
+
+        // Handle recovery of tagged image
+        async function handleRecovery(img) {
+            const detection = detectRecoveryData(img);
+            if (!detection.hasRecovery) {
+                return null;
+            }
+
+            try {
+                const regions = decodeRecoveryData(img, detection.stripeStartY);
+                const blob = await restoreOriginalImage(img, detection.stripeStartY, regions);
+                return blob;
+            } catch (error) {
+                console.error('Recovery failed:', error);
+                return null;
+            }
+        }
+
+        // Encode recovery data into pixel rows
+        function encodeRecoveryData(ctx, imageWidth, imageHeight, recoveryRegions) {
+            // Format: [MAGIC][regionCount][for each region: x,y,w,h,pixelData...]
+            const data = [];
+
+            // Add magic marker
+            RECOVERY_MAGIC.forEach(v => data.push(v, v, v)); // RGB same for marker
+
+            // Number of regions (as 3 bytes for RGB)
+            data.push(recoveryRegions.length, recoveryRegions.length, recoveryRegions.length);
+
+            // For each region, encode position and pixel data
+            recoveryRegions.forEach(region => {
+                // Encode x, y, w, h (2 bytes each, as RGB pairs)
+                const encodeCoord = (val) => {
+                    const high = Math.floor(val / 256);
+                    const low = val % 256;
+                    data.push(high, low, high);
+                };
+                encodeCoord(region.x);
+                encodeCoord(region.y);
+                encodeCoord(region.width);
+                encodeCoord(region.height);
+
+                // Add pixel data (already RGB)
+                region.pixels.forEach(p => data.push(p));
+            });
+
+            // Calculate how many rows we need
+            const pixelsNeeded = Math.ceil(data.length / 3);
+            const rowsNeeded = Math.ceil(pixelsNeeded / imageWidth);
+
+            // Create recovery stripe
+            const stripeHeight = rowsNeeded + 1; // +1 for marker row
+            const stripeCanvas = document.createElement('canvas');
+            stripeCanvas.width = imageWidth;
+            stripeCanvas.height = stripeHeight;
+            const stripeCtx = stripeCanvas.getContext('2d');
+
+            // Fill with marker pattern (distinguishable)
+            stripeCtx.fillStyle = '#1a1a2e';
+            stripeCtx.fillRect(0, 0, imageWidth, stripeHeight);
+
+            // Write data as pixels
+            const imgData = stripeCtx.getImageData(0, 0, imageWidth, stripeHeight);
+            for (let i = 0; i < data.length; i += 3) {
+                const pixelIndex = Math.floor(i / 3);
+                const idx = pixelIndex * 4;
+                imgData.data[idx] = data[i] || 0;
+                imgData.data[idx + 1] = data[i + 1] || 0;
+                imgData.data[idx + 2] = data[i + 2] || 0;
+                imgData.data[idx + 3] = 255;
+            }
+            stripeCtx.putImageData(imgData, 0, 0);
+
+            return { canvas: stripeCanvas, height: stripeHeight };
+        }
+
+        // Capture pixels from a rectangular region
+        function captureRegion(ctx, x, y, width, height, imgWidth, imgHeight) {
+            // Clamp to image bounds
+            const clampedX = Math.max(0, Math.floor(x));
+            const clampedY = Math.max(0, Math.floor(y));
+            const clampedW = Math.min(Math.ceil(width), imgWidth - clampedX);
+            const clampedH = Math.min(Math.ceil(height), imgHeight - clampedY);
+
+            if (clampedW <= 0 || clampedH <= 0) return null;
+
+            const imgData = ctx.getImageData(clampedX, clampedY, clampedW, clampedH);
+            const pixels = [];
+            for (let i = 0; i < imgData.data.length; i += 4) {
+                pixels.push(imgData.data[i], imgData.data[i + 1], imgData.data[i + 2]);
+            }
+
+            return {
+                x: clampedX,
+                y: clampedY,
+                width: clampedW,
+                height: clampedH,
+                pixels: pixels
+            };
+        }
+
+        // Generate annotated image with caption bar and recovery data
         function generateAnnotatedImage() {
             return new Promise((resolve) => {
                 // Calculate caption bar dimensions
@@ -1062,9 +1380,69 @@
                 const captionPadding = captionFontSize;
                 const captionBarHeight = captionPadding * 2 + (labeledFaces.length + 1) * captionLineHeight;
 
-                // Set canvas size (image + caption bar)
+                // Create temp canvas for original image
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = imageWidth;
+                tempCanvas.height = imageHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(originalImage, 0, 0);
+
+                // Calculate annotation parameters
+                const lineWidth = Math.max(3, Math.round(imageWidth / 200));
+                const numberSize = Math.max(24, Math.round(imageWidth / 25));
+
+                // Capture regions that will be modified BEFORE drawing
+                const recoveryRegions = [];
+                faces.forEach((face, index) => {
+                    if (!face.name) return;
+                    const box = face.box;
+
+                    // Capture box stroke region (expand by lineWidth)
+                    const strokePadding = Math.ceil(lineWidth / 2) + 1;
+
+                    // Top edge
+                    const topRegion = captureRegion(tempCtx,
+                        box.x - strokePadding, box.y - strokePadding,
+                        box.width + strokePadding * 2, lineWidth + strokePadding * 2,
+                        imageWidth, imageHeight);
+                    if (topRegion) recoveryRegions.push(topRegion);
+
+                    // Bottom edge
+                    const bottomRegion = captureRegion(tempCtx,
+                        box.x - strokePadding, box.y + box.height - strokePadding,
+                        box.width + strokePadding * 2, lineWidth + strokePadding * 2,
+                        imageWidth, imageHeight);
+                    if (bottomRegion) recoveryRegions.push(bottomRegion);
+
+                    // Left edge
+                    const leftRegion = captureRegion(tempCtx,
+                        box.x - strokePadding, box.y - strokePadding,
+                        lineWidth + strokePadding * 2, box.height + strokePadding * 2,
+                        imageWidth, imageHeight);
+                    if (leftRegion) recoveryRegions.push(leftRegion);
+
+                    // Right edge
+                    const rightRegion = captureRegion(tempCtx,
+                        box.x + box.width - strokePadding, box.y - strokePadding,
+                        lineWidth + strokePadding * 2, box.height + strokePadding * 2,
+                        imageWidth, imageHeight);
+                    if (rightRegion) recoveryRegions.push(rightRegion);
+
+                    // Number circle region
+                    const circleRadius = numberSize / 2;
+                    const circleRegion = captureRegion(tempCtx,
+                        box.x - circleRadius, box.y - circleRadius,
+                        numberSize + circleRadius, numberSize + circleRadius,
+                        imageWidth, imageHeight);
+                    if (circleRegion) recoveryRegions.push(circleRegion);
+                });
+
+                // Encode recovery data
+                const recoveryStripe = encodeRecoveryData(tempCtx, imageWidth, imageHeight, recoveryRegions);
+
+                // Set canvas size (image + caption bar + recovery stripe)
                 exportCanvas.width = imageWidth;
-                exportCanvas.height = imageHeight + captionBarHeight;
+                exportCanvas.height = imageHeight + captionBarHeight + recoveryStripe.height;
 
                 const ctx = exportCanvas.getContext('2d');
 
@@ -1072,9 +1450,6 @@
                 ctx.drawImage(originalImage, 0, 0);
 
                 // Draw boxes with numbers only (no name labels)
-                const lineWidth = Math.max(3, Math.round(imageWidth / 200));
-                const numberSize = Math.max(24, Math.round(imageWidth / 25));
-
                 faces.forEach((face, index) => {
                     if (!face.name) return;
 
@@ -1120,12 +1495,15 @@
                     yPos += captionLineHeight;
                 });
 
-                // Add image dimensions
+                // Add image dimensions with recovery indicator
                 ctx.fillStyle = '#a1a1a1';
-                ctx.fillText(`Image: ${imageWidth}x${imageHeight}`, captionPadding, yPos);
+                ctx.fillText(`Image: ${imageWidth}x${imageHeight} • Recoverable`, captionPadding, yPos);
 
-                // Convert to blob
-                exportCanvas.toBlob(resolve, 'image/jpeg', 0.92);
+                // Draw recovery stripe at the very bottom
+                ctx.drawImage(recoveryStripe.canvas, 0, imageHeight + captionBarHeight);
+
+                // Convert to PNG for lossless recovery data (JPEG would corrupt it)
+                exportCanvas.toBlob(resolve, 'image/png', 1.0);
             });
         }
 
