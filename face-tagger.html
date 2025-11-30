@@ -125,6 +125,31 @@
             height: auto;
         }
 
+        /* Detecting overlay */
+        .detecting-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .detecting-overlay .spinner {
+            margin-bottom: 12px;
+        }
+
+        .detecting-text {
+            font-size: 18px;
+            color: #525252;
+            font-weight: 500;
+        }
+
         /* Face boxes overlay */
         .face-boxes {
             position: absolute;
@@ -390,6 +415,10 @@
         <div id="workspace" class="workspace">
             <div class="photo-container">
                 <canvas id="photo-canvas"></canvas>
+                <div class="detecting-overlay" id="detecting-overlay" style="display: none;">
+                    <div class="spinner"></div>
+                    <div class="detecting-text">Detecting faces...</div>
+                </div>
                 <div class="face-boxes" id="face-boxes"></div>
             </div>
 
@@ -469,6 +498,7 @@
         const clearBtn = document.getElementById('clear-btn');
         const cancelBtn = document.getElementById('cancel-btn');
         const exportCanvas = document.getElementById('export-canvas');
+        const detectingOverlay = document.getElementById('detecting-overlay');
 
         // Initialize
         async function init() {
@@ -509,14 +539,14 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            showLoading('Loading your photo...');
-
             try {
                 // Load image
                 originalImage = await loadImage(file);
 
+                // Show image immediately with detecting overlay
+                showImageWithDetecting();
+
                 // Load models if needed
-                showLoading('Finding faces...');
                 await loadModels();
 
                 // Detect faces
@@ -525,13 +555,13 @@
                 // Process results
                 faces = detections.map((det, index) => ({
                     index: index,
-                    box: expandBoxPortrait(det.box),
+                    box: expandBoxProportional(det.box),
                     confidence: det.score,
                     name: null
                 }));
 
-                // Show workspace
-                showWorkspace();
+                // Hide overlay and show face boxes
+                finishDetection();
 
             } catch (error) {
                 console.error('Error processing image:', error);
@@ -557,13 +587,15 @@
             return detections;
         }
 
-        // Expand bounding box for portrait framing
-        function expandBoxPortrait(box, { top = 0.7, bottom = 1.0, sides = 0.4 } = {}) {
+        // Expand bounding box proportionally in all directions
+        function expandBoxProportional(box, expandRatio = 0.5) {
+            const expandX = box.width * expandRatio;
+            const expandY = box.height * expandRatio;
             const expanded = {
-                x: box.x - box.width * sides,
-                y: box.y - box.height * top,
-                width: box.width * (1 + sides * 2),
-                height: box.height * (1 + top + bottom)
+                x: box.x - expandX,
+                y: box.y - expandY,
+                width: box.width + expandX * 2,
+                height: box.height + expandY * 2
             };
             return clampBox(expanded, originalImage.width, originalImage.height);
         }
@@ -580,18 +612,10 @@
             };
         }
 
-        // Show loading screen
-        function showLoading(message) {
+        // Show image immediately with detecting overlay
+        function showImageWithDetecting() {
             uploadScreen.style.display = 'none';
-            workspace.classList.remove('active');
-            loadingScreen.style.display = 'block';
-            loadingText.textContent = message;
-        }
-
-        // Show workspace with photo and face boxes
-        function showWorkspace() {
             loadingScreen.style.display = 'none';
-            uploadScreen.style.display = 'none';
             workspace.classList.add('active');
 
             // Draw photo to canvas
@@ -607,6 +631,17 @@
 
             const ctx = photoCanvas.getContext('2d');
             ctx.drawImage(originalImage, 0, 0, photoCanvas.width, photoCanvas.height);
+
+            // Show detecting overlay
+            detectingOverlay.style.display = 'flex';
+            noFacesMessage.style.display = 'none';
+            instructions.style.display = 'none';
+            faceBoxesContainer.innerHTML = '';
+        }
+
+        // Finish detection and show results
+        function finishDetection() {
+            detectingOverlay.style.display = 'none';
 
             // Show face boxes or no-faces message
             if (faces.length === 0) {
@@ -838,6 +873,7 @@
             fileInput.value = '';
             faceBoxesContainer.innerHTML = '';
             statusBar.style.display = 'none';
+            detectingOverlay.style.display = 'none';
 
             workspace.classList.remove('active');
             loadingScreen.style.display = 'none';
