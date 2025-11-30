@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Face Tagger</title>
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pinch-zoom-js@2.3.5/dist/pinch-zoom.umd.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -132,15 +131,6 @@
             margin-bottom: 16px;
         }
 
-        .pinch-zoom-container {
-            position: relative;
-            width: 100%;
-        }
-
-        .pinch-zoom-container > * {
-            width: 100%;
-        }
-
         #photo-canvas {
             display: block;
             width: 100%;
@@ -213,8 +203,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transform-origin: center center;
-            will-change: transform;
         }
 
         .face-box.labeled .face-number {
@@ -454,11 +442,9 @@
 
         <!-- Workspace -->
         <div id="workspace" class="workspace">
-            <div class="photo-container" id="photo-container">
-                <div class="pinch-zoom-container" id="pinch-zoom-container">
-                    <canvas id="photo-canvas"></canvas>
-                    <div class="face-boxes" id="face-boxes"></div>
-                </div>
+            <div class="photo-container">
+                <canvas id="photo-canvas"></canvas>
+                <div class="face-boxes" id="face-boxes"></div>
                 <div class="detecting-overlay" id="detecting-overlay" style="display: none;">
                     <div class="spinner"></div>
                     <div class="detecting-text">Detecting faces...</div>
@@ -510,7 +496,7 @@
     </div>
 
     <canvas id="export-canvas"></canvas>
-    <div class="version-hash">e56917e</div>
+    <div class="version-hash">a7136b0</div>
 
     <script>
         // State
@@ -546,10 +532,6 @@
         const exportCanvas = document.getElementById('export-canvas');
         const detectingOverlay = document.getElementById('detecting-overlay');
         const captionList = document.getElementById('caption-list');
-        const pinchZoomContainer = document.getElementById('pinch-zoom-container');
-
-        // PinchZoom instance
-        let pinchZoom = null;
 
         // Initialize
         async function init() {
@@ -568,46 +550,6 @@
             modalOverlay.addEventListener('click', (e) => {
                 if (e.target === modalOverlay) closeModal();
             });
-        }
-
-        // Initialize pinch zoom
-        function initPinchZoom() {
-            if (pinchZoom) {
-                pinchZoom.destroy();
-            }
-            // Library exports as .default in UMD
-            const PinchZoomClass = window.PinchZoom?.default || window.PinchZoom;
-            if (!PinchZoomClass) {
-                console.warn('PinchZoom library not loaded');
-                return;
-            }
-            pinchZoom = new PinchZoomClass(pinchZoomContainer, {
-                maxZoom: 5,
-                minZoom: 1,
-                tapZoomFactor: 2,
-                draggableUnzoomed: false,
-                zoomOutFactor: 1.0,
-                onZoomUpdate: updateNumberScale
-            });
-        }
-
-        // Update face number scale to stay constant size on screen
-        function updateNumberScale() {
-            if (!pinchZoom) return;
-            const zoom = pinchZoom.zoomFactor || 1;
-            const inverseScale = 1 / zoom;
-            const numbers = faceBoxesContainer.querySelectorAll('.face-number');
-            numbers.forEach(num => {
-                num.style.transform = `scale(${inverseScale})`;
-            });
-        }
-
-        // Reset zoom
-        function resetZoom() {
-            if (pinchZoom) {
-                pinchZoom.destroy();
-                pinchZoom = null;
-            }
         }
 
         // Load face-api models
@@ -746,8 +688,6 @@
                 updateShareButton();
             }
 
-            // Initialize pinch-to-zoom (disabled for debugging)
-            // initPinchZoom();
         }
 
         // Render face boxes and caption list
@@ -999,7 +939,6 @@
             captionList.style.display = 'none';
             statusBar.style.display = 'none';
             detectingOverlay.style.display = 'none';
-            resetZoom();
 
             workspace.classList.remove('active');
             loadingScreen.style.display = 'none';
