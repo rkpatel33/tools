@@ -543,7 +543,7 @@
     </div>
 
     <canvas id="export-canvas"></canvas>
-    <div class="version-hash">a9c9769</div>
+    <div class="version-hash">a2d45b1</div>
 
     <script>
         // State
@@ -591,7 +591,6 @@
         let isPinching = false;
         let isPanning = false;
         let lastPanPoint = { x: 0, y: 0 };
-        let lastTapTime = 0;
 
         // Initialize
         async function init() {
@@ -701,30 +700,11 @@
                 isPanning = false;
                 disableTransition();
                 lastTouchDistance = getTouchDistance(e.touches);
-            } else if (e.touches.length === 1) {
-                const now = Date.now();
-                if (now - lastTapTime < 300) {
-                    // Double tap - zoom in by 0.5x increments (max 5x)
-                    e.preventDefault();
-                    enableTransition();
-                    const touch = clientToContainer(e.touches[0].clientX, e.touches[0].clientY);
-
-                    const newScale = Math.min(5, zoomScale + 0.5);
-                    const scaleDiff = newScale / zoomScale;
-                    panX = touch.x - (touch.x - panX) * scaleDiff;
-                    panY = touch.y - (touch.y - panY) * scaleDiff;
-                    zoomScale = newScale;
-                    constrainPan();
-                    applyTransform();
-                    lastTapTime = 0;
-                } else {
-                    lastTapTime = now;
-                    if (zoomScale > 1) {
-                        isPanning = true;
-                        disableTransition();
-                        lastPanPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                    }
-                }
+            } else if (e.touches.length === 1 && zoomScale > 1) {
+                // Start panning when zoomed in
+                isPanning = true;
+                disableTransition();
+                lastPanPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY };
             }
         }
 
@@ -942,32 +922,10 @@
                 numberEl.textContent = index + 1;
                 boxEl.appendChild(numberEl);
 
-                // Tap handler - single tap opens modal, double tap zooms
-                let tapTimeout = null;
+                // Tap handler - open modal
                 boxEl.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (tapTimeout) {
-                        // Double tap - zoom in
-                        clearTimeout(tapTimeout);
-                        tapTimeout = null;
-                        enableTransition();
-                        const rect = photoContainer.getBoundingClientRect();
-                        const boxCenterX = (box.x + box.width / 2) * displayScale;
-                        const boxCenterY = (box.y + box.height / 2) * displayScale;
-                        const newScale = Math.min(5, zoomScale + 0.5);
-                        const scaleDiff = newScale / zoomScale;
-                        panX = boxCenterX - (boxCenterX - panX) * scaleDiff;
-                        panY = boxCenterY - (boxCenterY - panY) * scaleDiff;
-                        zoomScale = newScale;
-                        constrainPan();
-                        applyTransform();
-                    } else {
-                        // Wait to see if it's a double tap
-                        tapTimeout = setTimeout(() => {
-                            tapTimeout = null;
-                            openModal(index);
-                        }, 300);
-                    }
+                    openModal(index);
                 });
 
                 faceBoxesContainer.appendChild(boxEl);
