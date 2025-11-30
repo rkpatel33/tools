@@ -136,6 +136,38 @@
             position: relative;
             transform-origin: 0 0;
             will-change: transform;
+            transition: transform 0.2s ease-out;
+        }
+
+        .photo-viewport.no-transition {
+            transition: none;
+        }
+
+        .reset-zoom-btn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            width: 36px;
+            height: 36px;
+            background: rgba(0, 0, 0, 0.6);
+            border: none;
+            border-radius: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            z-index: 5;
+        }
+
+        .reset-zoom-btn.visible {
+            display: flex;
+        }
+
+        .reset-zoom-btn svg {
+            width: 20px;
+            height: 20px;
         }
 
         #photo-canvas {
@@ -459,6 +491,11 @@
                     <div class="spinner"></div>
                     <div class="detecting-text">Detecting faces...</div>
                 </div>
+                <button class="reset-zoom-btn" id="reset-zoom-btn" title="Reset zoom">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
+                    </svg>
+                </button>
             </div>
 
             <div id="caption-list" class="caption-list" style="display: none;"></div>
@@ -506,7 +543,7 @@
     </div>
 
     <canvas id="export-canvas"></canvas>
-    <div class="version-hash">649a60e</div>
+    <div class="version-hash">aff5910</div>
 
     <script>
         // State
@@ -544,6 +581,7 @@
         const captionList = document.getElementById('caption-list');
         const photoContainer = document.getElementById('photo-container');
         const photoViewport = document.getElementById('photo-viewport');
+        const resetZoomBtn = document.getElementById('reset-zoom-btn');
 
         // Zoom/pan state
         let zoomScale = 1;
@@ -577,6 +615,13 @@
             photoContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
             photoContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
             photoContainer.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+            // Reset zoom button
+            resetZoomBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                enableTransition();
+                resetZoom();
+            });
         }
 
         // Get distance between two touch points
@@ -595,10 +640,21 @@
             };
         }
 
+        // Enable CSS transition
+        function enableTransition() {
+            photoViewport.classList.remove('no-transition');
+        }
+
+        // Disable CSS transition (for pinch gestures)
+        function disableTransition() {
+            photoViewport.classList.add('no-transition');
+        }
+
         // Apply zoom transform
         function applyTransform() {
             photoViewport.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
             updateNumberScale();
+            updateResetButton();
         }
 
         // Keep face numbers same screen size by counter-scaling
@@ -608,6 +664,15 @@
             numbers.forEach(num => {
                 num.style.transform = `scale(${inverseScale})`;
             });
+        }
+
+        // Show/hide reset button based on zoom level
+        function updateResetButton() {
+            if (zoomScale > 1) {
+                resetZoomBtn.classList.add('visible');
+            } else {
+                resetZoomBtn.classList.remove('visible');
+            }
         }
 
         // Constrain pan to keep image in view
@@ -634,30 +699,29 @@
                 e.preventDefault();
                 isPinching = true;
                 isPanning = false;
+                disableTransition();
                 lastTouchDistance = getTouchDistance(e.touches);
             } else if (e.touches.length === 1) {
                 const now = Date.now();
                 if (now - lastTapTime < 300) {
-                    // Double tap - toggle zoom
+                    // Double tap - zoom in by 0.5x increments (max 5x)
                     e.preventDefault();
+                    enableTransition();
                     const touch = clientToContainer(e.touches[0].clientX, e.touches[0].clientY);
 
-                    if (zoomScale > 1) {
-                        zoomScale = 1;
-                        panX = 0;
-                        panY = 0;
-                    } else {
-                        zoomScale = 2;
-                        panX = -(touch.x * zoomScale - touch.x);
-                        panY = -(touch.y * zoomScale - touch.y);
-                        constrainPan();
-                    }
+                    const newScale = Math.min(5, zoomScale + 0.5);
+                    const scaleDiff = newScale / zoomScale;
+                    panX = touch.x - (touch.x - panX) * scaleDiff;
+                    panY = touch.y - (touch.y - panY) * scaleDiff;
+                    zoomScale = newScale;
+                    constrainPan();
                     applyTransform();
                     lastTapTime = 0;
                 } else {
                     lastTapTime = now;
                     if (zoomScale > 1) {
                         isPanning = true;
+                        disableTransition();
                         lastPanPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY };
                     }
                 }
@@ -704,6 +768,7 @@
             if (e.touches.length === 0) {
                 isPanning = false;
                 if (zoomScale < 1.1) {
+                    enableTransition();
                     zoomScale = 1;
                     panX = 0;
                     panY = 0;
