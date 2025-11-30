@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Face Tagger</title>
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
-    <script src="https://unpkg.com/pinch-zoom-js@2.3.5/dist/pinch-zoom.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pinch-zoom-js@2.3.5/dist/pinch-zoom.umd.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -559,7 +559,13 @@
             if (pinchZoom) {
                 pinchZoom.destroy();
             }
-            pinchZoom = new PinchZoom(pinchZoomContainer, {
+            // Library may export as default or named
+            const PinchZoomClass = window.PinchZoom || window.PinchZoom?.default;
+            if (!PinchZoomClass) {
+                console.warn('PinchZoom library not loaded');
+                return;
+            }
+            pinchZoom = new PinchZoomClass(pinchZoomContainer, {
                 maxZoom: 5,
                 minZoom: 1,
                 tapZoomFactor: 2,
