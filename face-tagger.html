@@ -197,21 +197,28 @@
             background: #46a758;
         }
 
-        .face-label {
-            position: absolute;
-            bottom: -32px;
-            left: 50%;
-            transform: translateX(-50%);
+        /* Caption list */
+        .caption-list {
             background: #171717;
             color: #ffffff;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: 500;
-            white-space: nowrap;
-            max-width: 150px;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .caption-list .caption-item {
+            margin-bottom: 4px;
+        }
+
+        .caption-list .caption-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .caption-list .unlabeled {
+            color: #a1a1a1;
+            font-style: italic;
         }
 
         /* Instructions */
@@ -422,6 +429,8 @@
                 <div class="face-boxes" id="face-boxes"></div>
             </div>
 
+            <div id="caption-list" class="caption-list" style="display: none;"></div>
+
             <div id="no-faces" class="no-faces" style="display: none;">
                 <div class="no-faces-text">No faces found in this photo. Try another one?</div>
             </div>
@@ -499,6 +508,7 @@
         const cancelBtn = document.getElementById('cancel-btn');
         const exportCanvas = document.getElementById('export-canvas');
         const detectingOverlay = document.getElementById('detecting-overlay');
+        const captionList = document.getElementById('caption-list');
 
         // Initialize
         async function init() {
@@ -656,7 +666,7 @@
             }
         }
 
-        // Render face boxes
+        // Render face boxes and caption list
         function renderFaceBoxes() {
             faceBoxesContainer.innerHTML = '';
 
@@ -675,19 +685,34 @@
                 numberEl.textContent = index + 1;
                 boxEl.appendChild(numberEl);
 
-                // Name label
-                if (face.name) {
-                    const labelEl = document.createElement('div');
-                    labelEl.className = 'face-label';
-                    labelEl.textContent = face.name;
-                    boxEl.appendChild(labelEl);
-                }
-
                 // Click handler
                 boxEl.addEventListener('click', () => openModal(index));
 
                 faceBoxesContainer.appendChild(boxEl);
             });
+
+            // Update caption list
+            renderCaptionList();
+        }
+
+        // Render caption list below the image
+        function renderCaptionList() {
+            const hasAnyLabeled = faces.some(f => f.name);
+
+            if (!hasAnyLabeled) {
+                captionList.style.display = 'none';
+                return;
+            }
+
+            captionList.style.display = 'block';
+            captionList.innerHTML = faces.map((face, index) => {
+                const num = index + 1;
+                if (face.name) {
+                    return `<div class="caption-item">${num}. ${face.name}</div>`;
+                } else {
+                    return `<div class="caption-item unlabeled">${num}. (tap to name)</div>`;
+                }
+            }).join('');
         }
 
         // Open modal for face
@@ -787,26 +812,33 @@
             }
         }
 
-        // Generate annotated image
+        // Generate annotated image with caption bar
         function generateAnnotatedImage() {
             return new Promise((resolve) => {
+                // Calculate caption bar dimensions
+                const labeledFaces = faces.filter(f => f.name);
+                const captionFontSize = Math.max(24, Math.round(imageWidth * 0.025));
+                const captionLineHeight = captionFontSize * 1.5;
+                const captionPadding = captionFontSize;
+                const captionBarHeight = captionPadding * 2 + (labeledFaces.length + 1) * captionLineHeight;
+
+                // Set canvas size (image + caption bar)
                 exportCanvas.width = imageWidth;
-                exportCanvas.height = imageHeight;
+                exportCanvas.height = imageHeight + captionBarHeight;
 
                 const ctx = exportCanvas.getContext('2d');
 
                 // Draw original image
                 ctx.drawImage(originalImage, 0, 0);
 
-                // Draw boxes and labels
+                // Draw boxes with numbers only (no name labels)
+                const lineWidth = Math.max(3, Math.round(imageWidth / 200));
+                const numberSize = Math.max(24, Math.round(imageWidth / 25));
+
                 faces.forEach((face, index) => {
                     if (!face.name) return;
 
                     const box = face.box;
-                    const lineWidth = Math.max(3, Math.round(imageWidth / 200));
-                    const fontSize = Math.max(20, Math.round(imageWidth / 30));
-                    const padding = Math.round(fontSize * 0.4);
-                    const numberSize = Math.max(24, Math.round(imageWidth / 25));
 
                     // Draw box
                     ctx.strokeStyle = '#46a758';
@@ -817,32 +849,40 @@
                     const circleRadius = numberSize / 2;
                     ctx.fillStyle = '#46a758';
                     ctx.beginPath();
-                    ctx.arc(box.x - circleRadius / 2, box.y - circleRadius / 2, circleRadius, 0, Math.PI * 2);
+                    ctx.arc(box.x + circleRadius, box.y + circleRadius, circleRadius, 0, Math.PI * 2);
                     ctx.fill();
 
                     ctx.fillStyle = '#ffffff';
                     ctx.font = `bold ${Math.round(numberSize * 0.6)}px -apple-system, sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(String(index + 1), box.x - circleRadius / 2, box.y - circleRadius / 2);
-
-                    // Draw name label
-                    ctx.font = `bold ${fontSize}px -apple-system, sans-serif`;
-                    ctx.textAlign = 'left';
-                    ctx.textBaseline = 'top';
-
-                    const textWidth = ctx.measureText(face.name).width;
-                    const labelX = box.x;
-                    const labelY = box.y + box.height + lineWidth + 4;
-
-                    // Label background
-                    ctx.fillStyle = '#171717';
-                    ctx.fillRect(labelX, labelY, textWidth + padding * 2, fontSize + padding * 2);
-
-                    // Label text
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillText(face.name, labelX + padding, labelY + padding);
+                    ctx.fillText(String(index + 1), box.x + circleRadius, box.y + circleRadius);
                 });
+
+                // Draw black caption bar at bottom
+                ctx.fillStyle = '#171717';
+                ctx.fillRect(0, imageHeight, imageWidth, captionBarHeight);
+
+                // Draw caption text
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `${captionFontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+
+                let yPos = imageHeight + captionPadding;
+
+                labeledFaces.forEach((face, i) => {
+                    const originalIndex = faces.indexOf(face);
+                    const box = face.box;
+                    const coords = `(${Math.round(box.x)}, ${Math.round(box.y)}, ${Math.round(box.width)}, ${Math.round(box.height)})`;
+                    const text = `${originalIndex + 1}. ${face.name} ${coords}`;
+                    ctx.fillText(text, captionPadding, yPos);
+                    yPos += captionLineHeight;
+                });
+
+                // Add image dimensions
+                ctx.fillStyle = '#a1a1a1';
+                ctx.fillText(`Image: ${imageWidth}x${imageHeight}`, captionPadding, yPos);
 
                 // Convert to blob
                 exportCanvas.toBlob(resolve, 'image/jpeg', 0.92);
@@ -872,6 +912,7 @@
             originalImage = null;
             fileInput.value = '';
             faceBoxesContainer.innerHTML = '';
+            captionList.style.display = 'none';
             statusBar.style.display = 'none';
             detectingOverlay.style.display = 'none';
 
