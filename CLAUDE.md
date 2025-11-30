@@ -1,0 +1,243 @@
+# Tools
+
+A collection of single-page HTML/CSS/JS tools hosted on GitHub Pages.
+
+## Project Structure
+
+- Each tool is a standalone `.html` file in the root directory
+- Tools are self-contained with inline CSS and JS
+- No build step required - push to `master` to deploy
+- Live at: https://rkpatel33.github.io/tools/
+
+## Adding a New Tool
+
+1. Create `tool-name.html` in the root
+2. Use the visual style guide below for consistency
+3. Add a link to `README.md`
+4. Commit and push to `master`
+
+---
+
+## Visual Style Guide
+
+Based on [Vercel Geist Design System](https://vercel.com/geist/introduction).
+
+### Typography
+
+**Font Stack:**
+```css
+font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+font-family: 'Geist Mono', 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace; /* for code */
+```
+
+**Loading Geist fonts (optional):**
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-sans/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-mono/style.css">
+```
+
+**Sizes:**
+- Headings: 48px, 32px, 24px, 20px, 16px
+- Body/Copy: 16px (default), 14px (small)
+- Labels: 14px, 13px, 12px
+- Line height: 1.5 for body, 1.2 for headings
+
+### Colors
+
+**Backgrounds:**
+```css
+--background: #ffffff;        /* light mode */
+--background-secondary: #fafafa;
+--background: #0a0a0a;        /* dark mode */
+--background-secondary: #111111;
+```
+
+**Grays (light mode):**
+```css
+--gray-100: #f7f7f7;
+--gray-200: #e5e5e5;
+--gray-300: #d4d4d4;
+--gray-400: #a3a3a3;
+--gray-500: #737373;
+--gray-600: #525252;
+--gray-700: #404040;
+--gray-800: #262626;
+--gray-900: #171717;
+--gray-1000: #0a0a0a;
+```
+
+**Accent Colors:**
+```css
+--blue-700: #0070f3;          /* primary actions */
+--blue-800: #0060d1;          /* hover state */
+--red-700: #e5484d;           /* errors, destructive */
+--green-700: #46a758;         /* success */
+--amber-700: #f5a623;         /* warnings */
+```
+
+**Text:**
+```css
+--text-primary: #171717;      /* light mode */
+--text-secondary: #666666;
+--text-primary: #ededed;      /* dark mode */
+--text-secondary: #a1a1a1;
+```
+
+### Spacing
+
+Use multiples of 4px:
+- `4px` - tight
+- `8px` - compact
+- `12px` - default inner padding
+- `16px` - standard spacing
+- `20px` - comfortable
+- `24px` - section spacing
+- `32px` - large gaps
+- `40px` - page margins
+
+### Border Radius
+
+```css
+--radius-sm: 4px;   /* buttons, inputs */
+--radius-md: 8px;   /* cards, panels */
+--radius-lg: 12px;  /* modals, large containers */
+--radius-full: 9999px; /* pills, avatars */
+```
+
+### Shadows
+
+```css
+--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+--shadow-md: 0 2px 4px rgba(0, 0, 0, 0.1);
+--shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.1);
+```
+
+### Component Patterns
+
+**Buttons:**
+```css
+button {
+    background: #171717;
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+button:hover {
+    background: #333333;
+}
+```
+
+**Inputs:**
+```css
+input, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #ffffff;
+    transition: border-color 0.15s ease;
+}
+input:focus, textarea:focus {
+    outline: none;
+    border-color: #171717;
+}
+```
+
+**Cards/Panels:**
+```css
+.panel {
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 20px;
+}
+```
+
+### Starter Template
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool Name</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #fafafa;
+            color: #171717;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #171717;
+        }
+
+        button {
+            background: #171717;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #333333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tool Name</h1>
+        <div class="panel">
+            <!-- Tool content here -->
+        </div>
+    </div>
+
+    <script>
+        // Tool logic here
+    </script>
+</body>
+</html>
+```
