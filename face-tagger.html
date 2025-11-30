@@ -196,6 +196,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            transform-origin: center center;
+            will-change: transform;
         }
 
         .face-box.labeled .face-number {
@@ -550,7 +552,19 @@
                 minZoom: 1,
                 tapZoomFactor: 2,
                 draggableUnzoomed: false,
-                zoomOutFactor: 1.0
+                zoomOutFactor: 1.0,
+                onZoomUpdate: updateNumberScale
+            });
+        }
+
+        // Update face number scale to stay constant size on screen
+        function updateNumberScale() {
+            if (!pinchZoom) return;
+            const zoom = pinchZoom.zoomFactor || 1;
+            const inverseScale = 1 / zoom;
+            const numbers = faceBoxesContainer.querySelectorAll('.face-number');
+            numbers.forEach(num => {
+                num.style.transform = `scale(${inverseScale})`;
             });
         }
 
