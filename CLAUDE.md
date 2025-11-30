@@ -21,6 +21,7 @@ When committing changes to HTML tools, **always update README.md** with links to
 2. Use the visual style guide below for consistency
 3. Add a link to `README.md`
 4. Commit and push to `master`
+5. Open the tool in a new browser tab for user to test
 
 ---
 
