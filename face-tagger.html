@@ -543,7 +543,7 @@
     </div>
 
     <canvas id="export-canvas"></canvas>
-    <div class="version-hash">aff5910</div>
+    <div class="version-hash">1ae33d7</div>
 
     <script>
         // State
@@ -942,8 +942,33 @@
                 numberEl.textContent = index + 1;
                 boxEl.appendChild(numberEl);
 
-                // Click handler
-                boxEl.addEventListener('click', () => openModal(index));
+                // Tap handler - single tap opens modal, double tap zooms
+                let tapTimeout = null;
+                boxEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (tapTimeout) {
+                        // Double tap - zoom in
+                        clearTimeout(tapTimeout);
+                        tapTimeout = null;
+                        enableTransition();
+                        const rect = photoContainer.getBoundingClientRect();
+                        const boxCenterX = (box.x + box.width / 2) * displayScale;
+                        const boxCenterY = (box.y + box.height / 2) * displayScale;
+                        const newScale = Math.min(5, zoomScale + 0.5);
+                        const scaleDiff = newScale / zoomScale;
+                        panX = boxCenterX - (boxCenterX - panX) * scaleDiff;
+                        panY = boxCenterY - (boxCenterY - panY) * scaleDiff;
+                        zoomScale = newScale;
+                        constrainPan();
+                        applyTransform();
+                    } else {
+                        // Wait to see if it's a double tap
+                        tapTimeout = setTimeout(() => {
+                            tapTimeout = null;
+                            openModal(index);
+                        }, 300);
+                    }
+                });
 
                 faceBoxesContainer.appendChild(boxEl);
             });
