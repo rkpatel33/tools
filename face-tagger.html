@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Face Tagger</title>
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
+    <script src="https://unpkg.com/pinch-zoom-js@2.3.5/dist/pinch-zoom.umd.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -117,6 +118,10 @@
             border-radius: 12px;
             overflow: hidden;
             margin-bottom: 16px;
+        }
+
+        .pinch-zoom-container {
+            position: relative;
         }
 
         #photo-canvas {
@@ -420,13 +425,15 @@
 
         <!-- Workspace -->
         <div id="workspace" class="workspace">
-            <div class="photo-container">
-                <canvas id="photo-canvas"></canvas>
+            <div class="photo-container" id="photo-container">
+                <div class="pinch-zoom-container" id="pinch-zoom-container">
+                    <canvas id="photo-canvas"></canvas>
+                    <div class="face-boxes" id="face-boxes"></div>
+                </div>
                 <div class="detecting-overlay" id="detecting-overlay" style="display: none;">
                     <div class="spinner"></div>
                     <div class="detecting-text">Detecting faces...</div>
                 </div>
-                <div class="face-boxes" id="face-boxes"></div>
             </div>
 
             <div id="caption-list" class="caption-list" style="display: none;"></div>
@@ -509,6 +516,10 @@
         const exportCanvas = document.getElementById('export-canvas');
         const detectingOverlay = document.getElementById('detecting-overlay');
         const captionList = document.getElementById('caption-list');
+        const pinchZoomContainer = document.getElementById('pinch-zoom-container');
+
+        // PinchZoom instance
+        let pinchZoom = null;
 
         // Initialize
         async function init() {
@@ -527,6 +538,28 @@
             modalOverlay.addEventListener('click', (e) => {
                 if (e.target === modalOverlay) closeModal();
             });
+        }
+
+        // Initialize pinch zoom
+        function initPinchZoom() {
+            if (pinchZoom) {
+                pinchZoom.destroy();
+            }
+            pinchZoom = new PinchZoom(pinchZoomContainer, {
+                maxZoom: 5,
+                minZoom: 1,
+                tapZoomFactor: 2,
+                draggableUnzoomed: false,
+                zoomOutFactor: 1.0
+            });
+        }
+
+        // Reset zoom
+        function resetZoom() {
+            if (pinchZoom) {
+                pinchZoom.destroy();
+                pinchZoom = null;
+            }
         }
 
         // Load face-api models
@@ -664,6 +697,9 @@
                 renderFaceBoxes();
                 updateShareButton();
             }
+
+            // Initialize pinch-to-zoom
+            initPinchZoom();
         }
 
         // Render face boxes and caption list
@@ -915,6 +951,7 @@
             captionList.style.display = 'none';
             statusBar.style.display = 'none';
             detectingOverlay.style.display = 'none';
+            resetZoom();
 
             workspace.classList.remove('active');
             loadingScreen.style.display = 'none';
