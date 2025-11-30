@@ -410,6 +410,16 @@
         #export-canvas {
             display: none;
         }
+
+        /* Version hash */
+        .version-hash {
+            position: fixed;
+            bottom: 8px;
+            right: 8px;
+            font-size: 11px;
+            color: #a3a3a3;
+            font-family: 'SF Mono', Consolas, monospace;
+        }
     </style>
 </head>
 <body>
@@ -495,6 +505,7 @@
     </div>
 
     <canvas id="export-canvas"></canvas>
+    <div class="version-hash">1e52e79</div>
 
     <script>
         // State
@@ -559,8 +570,8 @@
             if (pinchZoom) {
                 pinchZoom.destroy();
             }
-            // Library may export as default or named
-            const PinchZoomClass = window.PinchZoom || window.PinchZoom?.default;
+            // Library exports as .default in UMD
+            const PinchZoomClass = window.PinchZoom?.default || window.PinchZoom;
             if (!PinchZoomClass) {
                 console.warn('PinchZoom library not loaded');
                 return;
