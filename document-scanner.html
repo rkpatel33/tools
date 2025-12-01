@@ -472,18 +472,27 @@
         }
 
         // Camera functions
+        let imageCapture = null;
+
         async function startCamera() {
             try {
                 showLoading('Starting camera...');
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'environment',
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
+                        width: { ideal: 4032 },
+                        height: { ideal: 3024 }
                     }
                 });
                 video.srcObject = stream;
                 await video.play();
+
+                // Initialize ImageCapture for high-res photo capture
+                const track = stream.getVideoTracks()[0];
+                if (typeof ImageCapture !== 'undefined') {
+                    imageCapture = new ImageCapture(track);
+                }
+
                 hideLoading();
                 setState('camera');
                 setStatus('Position document');
@@ -496,6 +505,7 @@
 
         function stopCamera() {
             stopLiveDetection();
+            imageCapture = null;
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
                 stream = null;
@@ -703,17 +713,44 @@
             }
         }
 
-        function captureImage() {
-            // Save live corners before stopping
-            const savedLiveCorners = liveCorners;
+        async function captureImage() {
+            showLoading('Capturing...');
 
-            captureCanvas.width = video.videoWidth;
-            captureCanvas.height = video.videoHeight;
-            const ctx = captureCanvas.getContext('2d');
-            ctx.drawImage(video, 0, 0);
-            stopCamera();
+            try {
+                let imageBitmap;
 
-            processImage(captureCanvas, savedLiveCorners);
+                // Try ImageCapture API for full sensor resolution
+                if (imageCapture) {
+                    try {
+                        const blob = await imageCapture.takePhoto();
+                        imageBitmap = await createImageBitmap(blob);
+                    } catch (e) {
+                        console.log('ImageCapture failed, using video frame:', e);
+                    }
+                }
+
+                // Fallback to video frame
+                if (!imageBitmap) {
+                    imageBitmap = await createImageBitmap(video);
+                }
+
+                captureCanvas.width = imageBitmap.width;
+                captureCanvas.height = imageBitmap.height;
+                const ctx = captureCanvas.getContext('2d');
+                ctx.drawImage(imageBitmap, 0, 0);
+
+                console.log(`Captured at ${imageBitmap.width}x${imageBitmap.height}`);
+                setStatus(`${imageBitmap.width}x${imageBitmap.height}`);
+
+                stopCamera();
+                hideLoading();
+
+                // Don't use live corners - resolution changed, need fresh detection
+                processImage(captureCanvas);
+            } catch (err) {
+                hideLoading();
+                alert('Capture failed: ' + err.message);
+            }
         }
 
         function loadImage(file) {
