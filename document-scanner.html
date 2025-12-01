@@ -487,6 +487,12 @@
                 video.srcObject = stream;
                 await video.play();
 
+                // Wait for video dimensions to be available
+                while (!video.videoWidth || !video.videoHeight) {
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                console.log(`Video resolution: ${video.videoWidth}x${video.videoHeight}`);
+
                 // Initialize ImageCapture for high-res photo capture
                 const track = stream.getVideoTracks()[0];
                 if (typeof ImageCapture !== 'undefined') {
@@ -495,7 +501,7 @@
 
                 hideLoading();
                 setState('camera');
-                setStatus('Position document');
+                setStatus(`${video.videoWidth}x${video.videoHeight}`);
                 startLiveDetection();
             } catch (err) {
                 hideLoading();
@@ -514,12 +520,14 @@
         }
 
         function startLiveDetection() {
+            console.log('startLiveDetection called, cvReady:', cvReady);
             if (!cvReady) {
                 // Retry when OpenCV is ready
                 setTimeout(startLiveDetection, 200);
                 return;
             }
 
+            console.log('Starting live detection loop');
             let lastDetection = 0;
             const detectionInterval = 150; // ms between detections
 
@@ -550,8 +558,12 @@
             ctx.clearRect(0, 0, liveOverlay.width, liveOverlay.height);
         }
 
+        let detectionCount = 0;
         function runLiveDetection() {
-            if (!video.videoWidth || !video.videoHeight) return;
+            if (!video.videoWidth || !video.videoHeight) {
+                console.log('Video dimensions not ready');
+                return;
+            }
 
             // Use a smaller canvas for faster processing
             const scale = 0.5;
@@ -577,6 +589,9 @@
                         br: { x: detected.br.x / scale, y: detected.br.y / scale },
                         bl: { x: detected.bl.x / scale, y: detected.bl.y / scale }
                     };
+                    if (detectionCount++ % 20 === 0) {
+                        console.log('Document detected:', liveCorners.tl);
+                    }
                 } else {
                     liveCorners = null;
                 }
