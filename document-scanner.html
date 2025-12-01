@@ -68,6 +68,20 @@
             display: none;
         }
 
+        #liveOverlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        [data-state="camera"] #liveOverlay {
+            display: block;
+        }
+
         #previewCanvas {
             display: none;
             position: absolute;
@@ -104,17 +118,17 @@
         }
 
         .corner-handle {
-            width: 32px;
-            height: 32px;
+            width: 22px;
+            height: 22px;
             background: #0070f3;
-            border: 3px solid #ffffff;
+            border: 2px solid #ffffff;
             border-radius: 50%;
             position: absolute;
             transform: translate(-50%, -50%);
             cursor: grab;
             pointer-events: auto;
             touch-action: none;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
         }
 
         .corner-handle:active {
@@ -296,6 +310,7 @@
             </div>
 
             <video id="video" autoplay playsinline></video>
+            <canvas id="liveOverlay"></canvas>
             <canvas id="captureCanvas"></canvas>
             <canvas id="previewCanvas"></canvas>
             <canvas id="resultCanvas"></canvas>
@@ -384,10 +399,13 @@
         let originalImage = null;
         let imageScale = 1;
         let imageOffset = { x: 0, y: 0 };
+        let liveDetectionId = null;
+        let liveCorners = null;
 
         // DOM elements
         const body = document.body;
         const video = document.getElementById('video');
+        const liveOverlay = document.getElementById('liveOverlay');
         const captureCanvas = document.getElementById('captureCanvas');
         const previewCanvas = document.getElementById('previewCanvas');
         const resultCanvas = document.getElementById('resultCanvas');
@@ -469,6 +487,7 @@
                 hideLoading();
                 setState('camera');
                 setStatus('Position document');
+                startLiveDetection();
             } catch (err) {
                 hideLoading();
                 alert('Could not access camera: ' + err.message);
@@ -476,6 +495,7 @@
         }
 
         function stopCamera() {
+            stopLiveDetection();
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
                 stream = null;
@@ -483,14 +503,217 @@
             video.srcObject = null;
         }
 
+        function startLiveDetection() {
+            if (!cvReady) {
+                // Retry when OpenCV is ready
+                setTimeout(startLiveDetection, 200);
+                return;
+            }
+
+            let lastDetection = 0;
+            const detectionInterval = 150; // ms between detections
+
+            function detectFrame() {
+                if (state !== 'camera' || !stream) {
+                    return;
+                }
+
+                const now = performance.now();
+                if (now - lastDetection >= detectionInterval) {
+                    lastDetection = now;
+                    runLiveDetection();
+                }
+
+                liveDetectionId = requestAnimationFrame(detectFrame);
+            }
+
+            detectFrame();
+        }
+
+        function stopLiveDetection() {
+            if (liveDetectionId) {
+                cancelAnimationFrame(liveDetectionId);
+                liveDetectionId = null;
+            }
+            liveCorners = null;
+            const ctx = liveOverlay.getContext('2d');
+            ctx.clearRect(0, 0, liveOverlay.width, liveOverlay.height);
+        }
+
+        function runLiveDetection() {
+            if (!video.videoWidth || !video.videoHeight) return;
+
+            // Use a smaller canvas for faster processing
+            const scale = 0.5;
+            const w = video.videoWidth * scale;
+            const h = video.videoHeight * scale;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(video, 0, 0, w, h);
+
+            try {
+                const src = cv.imread(tempCanvas);
+                const detected = detectDocumentFast(src, w, h);
+                src.delete();
+
+                if (detected) {
+                    // Scale corners back to full video size
+                    liveCorners = {
+                        tl: { x: detected.tl.x / scale, y: detected.tl.y / scale },
+                        tr: { x: detected.tr.x / scale, y: detected.tr.y / scale },
+                        br: { x: detected.br.x / scale, y: detected.br.y / scale },
+                        bl: { x: detected.bl.x / scale, y: detected.bl.y / scale }
+                    };
+                } else {
+                    liveCorners = null;
+                }
+
+                drawLiveOverlay();
+            } catch (err) {
+                console.error('Live detection error:', err);
+            }
+        }
+
+        function detectDocumentFast(src, width, height) {
+            try {
+                const gray = new cv.Mat();
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+                const blurred = new cv.Mat();
+                cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+
+                const edges = new cv.Mat();
+                cv.Canny(blurred, edges, 50, 150);
+
+                const dilated = new cv.Mat();
+                const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+                cv.dilate(edges, dilated, kernel);
+
+                const contours = new cv.MatVector();
+                const hierarchy = new cv.Mat();
+                cv.findContours(dilated, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                let result = null;
+                let maxArea = width * height * 0.1;
+
+                for (let i = 0; i < contours.size(); i++) {
+                    const contour = contours.get(i);
+                    const area = cv.contourArea(contour);
+
+                    if (area > maxArea) {
+                        const peri = cv.arcLength(contour, true);
+                        const approx = new cv.Mat();
+                        cv.approxPolyDP(contour, approx, 0.02 * peri, true);
+
+                        if (approx.rows === 4) {
+                            maxArea = area;
+                            const points = [];
+                            for (let j = 0; j < 4; j++) {
+                                points.push({
+                                    x: approx.data32S[j * 2],
+                                    y: approx.data32S[j * 2 + 1]
+                                });
+                            }
+                            result = orderPoints(points);
+                        }
+                        approx.delete();
+                    }
+                }
+
+                // Clean up
+                gray.delete();
+                blurred.delete();
+                edges.delete();
+                dilated.delete();
+                kernel.delete();
+                hierarchy.delete();
+                for (let i = 0; i < contours.size(); i++) {
+                    contours.get(i).delete();
+                }
+                contours.delete();
+
+                return result;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function drawLiveOverlay() {
+            const containerRect = mainArea.getBoundingClientRect();
+            const videoRect = video.getBoundingClientRect();
+
+            liveOverlay.width = containerRect.width;
+            liveOverlay.height = containerRect.height;
+
+            const ctx = liveOverlay.getContext('2d');
+            ctx.clearRect(0, 0, liveOverlay.width, liveOverlay.height);
+
+            if (!liveCorners) return;
+
+            // Calculate video display area within container
+            const videoAspect = video.videoWidth / video.videoHeight;
+            const containerAspect = containerRect.width / containerRect.height;
+
+            let displayWidth, displayHeight, offsetX, offsetY;
+
+            if (videoAspect > containerAspect) {
+                displayWidth = containerRect.width;
+                displayHeight = containerRect.width / videoAspect;
+                offsetX = 0;
+                offsetY = (containerRect.height - displayHeight) / 2;
+            } else {
+                displayHeight = containerRect.height;
+                displayWidth = containerRect.height * videoAspect;
+                offsetX = (containerRect.width - displayWidth) / 2;
+                offsetY = 0;
+            }
+
+            const scaleX = displayWidth / video.videoWidth;
+            const scaleY = displayHeight / video.videoHeight;
+
+            // Transform corners to display coordinates
+            const points = ['tl', 'tr', 'br', 'bl'].map(key => ({
+                x: liveCorners[key].x * scaleX + offsetX,
+                y: liveCorners[key].y * scaleY + offsetY
+            }));
+
+            // Draw filled polygon
+            ctx.fillStyle = 'rgba(0, 112, 243, 0.15)';
+            ctx.strokeStyle = '#0070f3';
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw corner circles
+            ctx.fillStyle = '#0070f3';
+            for (const p of points) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
         function captureImage() {
+            // Save live corners before stopping
+            const savedLiveCorners = liveCorners;
+
             captureCanvas.width = video.videoWidth;
             captureCanvas.height = video.videoHeight;
             const ctx = captureCanvas.getContext('2d');
             ctx.drawImage(video, 0, 0);
             stopCamera();
 
-            processImage(captureCanvas);
+            processImage(captureCanvas, savedLiveCorners);
         }
 
         function loadImage(file) {
@@ -509,7 +732,7 @@
             reader.readAsDataURL(file);
         }
 
-        async function processImage(canvas) {
+        async function processImage(canvas, predetectedCorners = null) {
             showLoading('Detecting document...');
             setStatus('Processing');
 
@@ -531,8 +754,12 @@
             // Store original image
             originalImage = cv.imread(canvas);
 
-            // Detect document corners
-            corners = detectDocument(originalImage);
+            // Use predetected corners if available, otherwise detect
+            if (predetectedCorners) {
+                corners = predetectedCorners;
+            } else {
+                corners = detectDocument(originalImage);
+            }
 
             // Draw preview
             drawPreview();
