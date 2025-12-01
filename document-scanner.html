@@ -565,10 +565,9 @@
                 return;
             }
 
-            // Use a smaller canvas for faster processing
-            const scale = 0.5;
-            const w = video.videoWidth * scale;
-            const h = video.videoHeight * scale;
+            // Use full resolution for accurate corner detection
+            const w = video.videoWidth;
+            const h = video.videoHeight;
 
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = w;
@@ -582,13 +581,7 @@
                 src.delete();
 
                 if (detected) {
-                    // Scale corners back to full video size
-                    liveCorners = {
-                        tl: { x: detected.tl.x / scale, y: detected.tl.y / scale },
-                        tr: { x: detected.tr.x / scale, y: detected.tr.y / scale },
-                        br: { x: detected.br.x / scale, y: detected.br.y / scale },
-                        bl: { x: detected.bl.x / scale, y: detected.bl.y / scale }
-                    };
+                    liveCorners = detected;
                     if (detectionCount++ % 20 === 0) {
                         console.log('Document detected:', liveCorners.tl);
                     }
@@ -678,23 +671,11 @@
 
             if (!liveCorners) return;
 
-            // Calculate video display area within container
-            const videoAspect = video.videoWidth / video.videoHeight;
-            const containerAspect = containerRect.width / containerRect.height;
-
-            let displayWidth, displayHeight, offsetX, offsetY;
-
-            if (videoAspect > containerAspect) {
-                displayWidth = containerRect.width;
-                displayHeight = containerRect.width / videoAspect;
-                offsetX = 0;
-                offsetY = (containerRect.height - displayHeight) / 2;
-            } else {
-                displayHeight = containerRect.height;
-                displayWidth = containerRect.height * videoAspect;
-                offsetX = (containerRect.width - displayWidth) / 2;
-                offsetY = 0;
-            }
+            // Use actual video element position (accounts for object-fit: contain)
+            const offsetX = videoRect.left - containerRect.left;
+            const offsetY = videoRect.top - containerRect.top;
+            const displayWidth = videoRect.width;
+            const displayHeight = videoRect.height;
 
             const scaleX = displayWidth / video.videoWidth;
             const scaleY = displayHeight / video.videoHeight;

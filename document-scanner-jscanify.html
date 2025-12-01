@@ -600,6 +600,7 @@
 
         function drawLiveOverlay() {
             const containerRect = mainArea.getBoundingClientRect();
+            const videoRect = video.getBoundingClientRect();
 
             liveOverlay.width = containerRect.width;
             liveOverlay.height = containerRect.height;
@@ -609,22 +610,11 @@
 
             if (!liveCorners) return;
 
-            const videoAspect = video.videoWidth / video.videoHeight;
-            const containerAspect = containerRect.width / containerRect.height;
-
-            let displayWidth, displayHeight, offsetX, offsetY;
-
-            if (videoAspect > containerAspect) {
-                displayWidth = containerRect.width;
-                displayHeight = containerRect.width / videoAspect;
-                offsetX = 0;
-                offsetY = (containerRect.height - displayHeight) / 2;
-            } else {
-                displayHeight = containerRect.height;
-                displayWidth = containerRect.height * videoAspect;
-                offsetX = (containerRect.width - displayWidth) / 2;
-                offsetY = 0;
-            }
+            // Use actual video element position (accounts for object-fit: contain)
+            const offsetX = videoRect.left - containerRect.left;
+            const offsetY = videoRect.top - containerRect.top;
+            const displayWidth = videoRect.width;
+            const displayHeight = videoRect.height;
 
             const scaleX = displayWidth / video.videoWidth;
             const scaleY = displayHeight / video.videoHeight;
