@@ -137,7 +137,7 @@
         }
 
         .controls {
-            padding: 20px;
+            padding: 12px 16px;
             background: #0a0a0a;
             border-top: 1px solid #262626;
             flex-shrink: 0;
@@ -145,7 +145,7 @@
 
         .button-row {
             display: flex;
-            gap: 12px;
+            gap: 8px;
             justify-content: center;
         }
 
@@ -153,15 +153,15 @@
             background: #171717;
             color: #ffffff;
             border: 1px solid #333333;
-            padding: 14px 24px;
-            border-radius: 8px;
-            font-size: 15px;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 14px;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.15s ease;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         button:hover {
@@ -187,8 +187,8 @@
         }
 
         button svg {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
         }
 
         .loading-overlay {
@@ -1193,6 +1193,102 @@
                 drawPreview();
             }
         });
+
+        // Pinch-to-zoom for result view
+        let zoomLevel = 1;
+        let panX = 0, panY = 0;
+        let lastTouchDist = 0;
+        let lastTouchCenter = { x: 0, y: 0 };
+        let isPinching = false;
+
+        function updateResultTransform() {
+            resultCanvas.style.transform = `translate(-50%, -50%) scale(${zoomLevel}) translate(${panX}px, ${panY}px)`;
+        }
+
+        function resetZoom() {
+            zoomLevel = 1;
+            panX = 0;
+            panY = 0;
+            updateResultTransform();
+        }
+
+        function getTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.hypot(dx, dy);
+        }
+
+        function getTouchCenter(touches) {
+            return {
+                x: (touches[0].clientX + touches[1].clientX) / 2,
+                y: (touches[0].clientY + touches[1].clientY) / 2
+            };
+        }
+
+        resultCanvas.addEventListener('touchstart', (e) => {
+            if (state !== 'result') return;
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                isPinching = true;
+                lastTouchDist = getTouchDistance(e.touches);
+                lastTouchCenter = getTouchCenter(e.touches);
+            }
+        }, { passive: false });
+
+        resultCanvas.addEventListener('touchmove', (e) => {
+            if (state !== 'result' || !isPinching) return;
+            if (e.touches.length === 2) {
+                e.preventDefault();
+
+                const newDist = getTouchDistance(e.touches);
+                const newCenter = getTouchCenter(e.touches);
+
+                // Zoom
+                const scale = newDist / lastTouchDist;
+                zoomLevel = Math.max(1, Math.min(5, zoomLevel * scale));
+
+                // Pan (only when zoomed in)
+                if (zoomLevel > 1) {
+                    panX += (newCenter.x - lastTouchCenter.x) / zoomLevel;
+                    panY += (newCenter.y - lastTouchCenter.y) / zoomLevel;
+                }
+
+                updateResultTransform();
+
+                lastTouchDist = newDist;
+                lastTouchCenter = newCenter;
+            }
+        }, { passive: false });
+
+        resultCanvas.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                isPinching = false;
+            }
+            // Reset if zoomed out completely
+            if (zoomLevel <= 1) {
+                resetZoom();
+            }
+        });
+
+        // Double-tap to reset zoom
+        let lastTap = 0;
+        resultCanvas.addEventListener('touchend', (e) => {
+            if (state !== 'result') return;
+            const now = Date.now();
+            if (now - lastTap < 300 && e.touches.length === 0) {
+                resetZoom();
+            }
+            lastTap = now;
+        });
+
+        // Reset zoom when leaving result state
+        const originalSetState = setState;
+        setState = function(newState) {
+            if (state === 'result' && newState !== 'result') {
+                resetZoom();
+            }
+            originalSetState(newState);
+        };
     </script>
 </body>
 </html>
