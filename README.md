@@ -9,6 +9,7 @@ Publicly available tools hosted on GitHub Pages.
 - <a href="https://rkpatel33.github.io/tools/hello-world.html" target="_blank">Hello World</a> - A simple greeting tool
 - <a href="https://rkpatel33.github.io/tools/face-tagger.html" target="_blank">Face Tagger</a> - Add names to faces in photos and share
 - <a href="https://rkpatel33.github.io/tools/document-scanner.html" target="_blank">Document Scanner</a> - Scan documents with automatic edge detection and perspective correction
+- <a href="https://rkpatel33.github.io/tools/document-scanner-jscanify.html" target="_blank">Document Scanner (jscanify)</a> - Alternative scanner using jscanify library for comparison
 
 ## Adding a new tool
 
