@@ -548,7 +548,8 @@
         function runLiveDetection() {
             if (!video.videoWidth || !video.videoHeight) return;
 
-            const scale = 0.5;
+            // Use higher resolution for jscanify (its corner algorithm needs more detail)
+            const scale = 0.75;
             const w = video.videoWidth * scale;
             const h = video.videoHeight * scale;
 
@@ -645,15 +646,15 @@
         }
 
         function captureImage() {
-            const savedLiveCorners = liveCorners;
-
             captureCanvas.width = video.videoWidth;
             captureCanvas.height = video.videoHeight;
             const ctx = captureCanvas.getContext('2d');
             ctx.drawImage(video, 0, 0);
             stopCamera();
 
-            processImage(captureCanvas, savedLiveCorners);
+            // Always re-detect at full resolution for jscanify
+            // (its corner algorithm doesn't work well on scaled images)
+            processImage(captureCanvas);
         }
 
         function loadImage(file) {
