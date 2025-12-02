@@ -155,67 +155,73 @@
 
         .button-row {
             display: flex;
-            gap: 8px;
+            gap: 12px;
             justify-content: center;
+            align-items: center;
         }
 
         button {
-            background: #171717;
+            background: #262626;
             color: #ffffff;
             border: none;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
+            width: 44px;
+            height: 44px;
+            border-radius: 22px;
             cursor: pointer;
-            transition: background 0.15s ease;
+            transition: all 0.15s ease;
             display: flex;
             align-items: center;
-            gap: 5px;
+            justify-content: center;
+            padding: 0;
         }
 
         button:hover {
-            background: #262626;
+            background: #333333;
         }
 
         button:active {
-            opacity: 0.8;
+            transform: scale(0.95);
+            opacity: 0.9;
         }
 
         button.primary {
-            background: #0070f3;
+            background: #c77d5e;
         }
 
         button.primary:hover {
-            background: #0060d1;
+            background: #b06d4e;
         }
 
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
         }
 
         button svg {
-            width: 16px;
-            height: 16px;
+            width: 20px;
+            height: 20px;
         }
 
         select {
-            background: #171717;
-            color: #ffffff;
+            background: #262626;
+            color: #a1a1a1;
             border: none;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 13px;
+            padding: 10px 28px 10px 12px;
+            border-radius: 22px;
+            font-size: 12px;
             font-weight: 500;
             cursor: pointer;
             appearance: none;
             -webkit-appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a1a1a1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 8px center;
-            background-size: 14px;
-            padding-right: 28px;
+            background-position: right 10px center;
+            background-size: 12px;
+            height: 36px;
+        }
+
+        select:hover {
+            background-color: #333333;
         }
 
         select:focus {
@@ -359,67 +365,72 @@
 
         <div class="controls" id="controls">
             <div class="button-row" id="introControls">
-                <button class="primary" id="startBtn">
+                <button class="primary" id="startBtn" title="Live Camera">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                </button>
+                <button id="nativeCameraBtn" title="Hi-Res Photo">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
-                    Live
                 </button>
-                <button id="nativeCameraBtn">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-                    </svg>
-                    Hi-Res
-                </button>
-                <button id="uploadBtn">
+                <button id="uploadBtn" title="Upload Photo">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                     </svg>
-                    Upload
                 </button>
                 <input type="file" id="fileInput" accept="image/*" style="display: none;">
                 <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" style="display: none;">
             </div>
 
             <div class="button-row" id="cameraControls" style="display: none;">
-                <button id="captureBtn" class="primary">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                    </svg>
-                    Capture
-                </button>
-                <button id="cancelCameraBtn">Cancel</button>
-            </div>
-
-            <div class="button-row" id="adjustControls" style="display: none;">
-                <button id="applyBtn" class="primary">
+                <button id="captureBtn" class="primary" title="Capture">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    Apply
                 </button>
-                <select id="interpolationSelect">
-                    <option value="lanczos4">Lanczos4 (Sharp)</option>
-                    <option value="linear">Bilinear (Fast)</option>
+                <button id="cancelCameraBtn" title="Cancel">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="button-row" id="adjustControls" style="display: none;">
+                <button id="applyBtn" class="primary" title="Apply Transform">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </button>
+                <select id="interpolationSelect" title="Quality">
+                    <option value="lanczos4">Sharp</option>
+                    <option value="linear">Fast</option>
                 </select>
-                <button id="retakeBtn">Retake</button>
+                <button id="retakeBtn" title="Retake">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </button>
             </div>
 
             <div class="button-row" id="resultControls" style="display: none;">
-                <button id="saveBtn" class="primary">
+                <button id="saveBtn" class="primary" title="Save">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
-                    Save
                 </button>
-                <button id="shareBtn">
+                <button id="shareBtn" title="Share">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
                     </svg>
-                    Share
                 </button>
-                <button id="newScanBtn">New Scan</button>
+                <button id="newScanBtn" title="New Scan">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </button>
             </div>
         </div>
     </div>
