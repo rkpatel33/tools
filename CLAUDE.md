@@ -2,6 +2,12 @@
 
 A collection of single-page HTML/CSS/JS tools hosted on GitHub Pages.
 
+## Research Tips
+
+When referencing external libraries or documentation:
+- **Clone repos to `/tmp`** for detailed reference (e.g., `git clone https://github.com/user/repo /tmp/repo`) - this is more reliable than fetching GitHub pages directly
+- **Online docs** are fine for quick reference when you just need API signatures or basic usage examples
+
 ## Commit Checklist
 
 When committing changes to HTML tools, **always update README.md** with links to the deployed tools:
