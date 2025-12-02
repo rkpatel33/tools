@@ -418,10 +418,8 @@
         <div class="loading-text" id="loadingText">Processing...</div>
     </div>
 
-    <!-- OpenCV.js -->
+    <!-- OpenCV.js - loaded first, jscanify loaded after OpenCV is ready -->
     <script async src="https://docs.opencv.org/4.9.0/opencv.js" id="opencvScript"></script>
-    <!-- jscanify -->
-    <script src="https://cdn.jsdelivr.net/gh/ColonelParrot/jscanify@master/src/jscanify.min.js"></script>
 
     <script>
         // State management
@@ -466,16 +464,52 @@
             bl: document.getElementById('handle-bl')
         };
 
-        // OpenCV ready callback
-        document.getElementById('opencvScript').onload = function() {
-            if (typeof cv !== 'undefined') {
-                cv.onRuntimeInitialized = () => {
-                    cvReady = true;
+        // OpenCV ready callback - load jscanify after OpenCV is ready
+        function initOpenCV() {
+            if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
+                cv.onRuntimeInitialized = onOpenCVReady;
+            } else if (typeof cv !== 'undefined' && cv.Mat) {
+                // OpenCV already initialized
+                onOpenCVReady();
+            } else {
+                // Wait for cv to be defined
+                setTimeout(initOpenCV, 100);
+            }
+        }
+
+        function onOpenCVReady() {
+            cvReady = true;
+            setStatus('Loading jscanify...');
+
+            // Load jscanify dynamically after OpenCV is ready
+            const jscanifyScript = document.createElement('script');
+            jscanifyScript.src = 'https://cdn.jsdelivr.net/npm/jscanify@1.3.0/dist/jscanify.min.js';
+            jscanifyScript.onload = function() {
+                scanner = new jscanify();
+                setStatus('Ready');
+            };
+            jscanifyScript.onerror = function() {
+                // Fallback to GitHub CDN
+                const fallbackScript = document.createElement('script');
+                fallbackScript.src = 'https://cdn.jsdelivr.net/gh/ColonelParrot/jscanify@1.3.0/src/jscanify.min.js';
+                fallbackScript.onload = function() {
                     scanner = new jscanify();
                     setStatus('Ready');
                 };
-            }
-        };
+                fallbackScript.onerror = function() {
+                    setStatus('jscanify failed to load');
+                    console.error('Failed to load jscanify from both CDNs');
+                };
+                document.body.appendChild(fallbackScript);
+            };
+            document.body.appendChild(jscanifyScript);
+        }
+
+        document.getElementById('opencvScript').onload = initOpenCV;
+        // Also try in case script is already loaded
+        if (document.getElementById('opencvScript').complete) {
+            initOpenCV();
+        }
 
         function setState(newState) {
             state = newState;
