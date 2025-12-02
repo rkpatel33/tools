@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Document Scanner</title>
+
+    <!-- iOS PWA Configuration -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Doc Scanner">
+    <link rel="apple-touch-icon" href="icons/document-scanner-icon.png">
+
+    <!-- Android PWA Configuration -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0a0a0a">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ededed;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: -webkit-fill-available;
+        }
+
+        .header {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0a0a0a;
+            border-bottom: 1px solid #262626;
+            flex-shrink: 0;
+        }
+
+        h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .status {
+            font-size: 13px;
+            color: #a1a1a1;
+        }
+
+        .main-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111111;
+        }
+
+        video, canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        #video {
+            display: block;
+        }
+
+        #captureCanvas {
+            display: none;
+        }
+
+        #liveOverlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        [data-state="camera"] #liveOverlay {
+            display: block;
+        }
+
+        #previewCanvas {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #resultCanvas {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .corner-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .corner-overlay.active {
+            display: block;
+        }
+
+        .corner-overlay svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .corner-handle {
+            width: 22px;
+            height: 22px;
+            background: #0070f3;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            position: absolute;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            pointer-events: auto;
+            touch-action: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+
+        .corner-handle:active {
+            cursor: grabbing;
+            background: #0060d1;
+        }
+
+        .controls {
+            padding: 12px 16px;
+            background: #0a0a0a;
+            border-top: 1px solid #262626;
+            flex-shrink: 0;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button {
+            background: #262626;
+            color: #ffffff;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 22px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        button:hover {
+            background: #333333;
+        }
+
+        button:active {
+            transform: scale(0.95);
+            opacity: 0.9;
+        }
+
+        button.primary {
+            background: #0070f3;
+        }
+
+        button.primary:hover {
+            background: #0060d1;
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        button svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        select {
+            background: #262626;
+            color: #a1a1a1;
+            border: none;
+            padding: 10px 28px 10px 12px;
+            border-radius: 22px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a1a1a1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 12px;
+            height: 36px;
+        }
+
+        select:hover {
+            background-color: #333333;
+        }
+
+        select:focus {
+            outline: none;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333333;
+            border-top-color: #0070f3;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 14px;
+            color: #a1a1a1;
+        }
+
+        .intro-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .intro-icon {
+            width: 80px;
+            height: 80px;
+            background: #171717;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .intro-icon svg {
+            width: 40px;
+            height: 40px;
+            color: #0070f3;
+        }
+
+        .intro-title {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .intro-desc {
+            font-size: 15px;
+            color: #a1a1a1;
+            max-width: 300px;
+            line-height: 1.5;
+        }
+
+        /* Hide elements based on state */
+        [data-state="intro"] #video,
+        [data-state="intro"] #previewCanvas,
+        [data-state="intro"] #resultCanvas,
+        [data-state="intro"] .corner-overlay { display: none; }
+
+        [data-state="camera"] .intro-screen,
+        [data-state="camera"] #previewCanvas,
+        [data-state="camera"] #resultCanvas,
+        [data-state="camera"] .corner-overlay { display: none; }
+        [data-state="camera"] #video { display: block; }
+
+        [data-state="adjust"] .intro-screen,
+        [data-state="adjust"] #video,
+        [data-state="adjust"] #resultCanvas { display: none; }
+        [data-state="adjust"] #previewCanvas { display: block; }
+        [data-state="adjust"] .corner-overlay { display: block; }
+
+        [data-state="result"] .intro-screen,
+        [data-state="result"] #video,
+        [data-state="result"] #previewCanvas,
+        [data-state="result"] .corner-overlay { display: none; }
+        [data-state="result"] #resultCanvas { display: block; }
+    </style>
+</head>
+<body data-state="intro">
+    <div class="container">
+        <div class="header">
+            <h1>Document Scanner</h1>
+            <span class="status" id="status">Ready</span>
+        </div>
+
+        <div class="main-area" id="mainArea">
+            <div class="intro-screen">
+                <div class="intro-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+                <div class="intro-title">Scan Documents</div>
+                <div class="intro-desc">Take a photo of a document to automatically detect edges, correct perspective, and save a clean scan.</div>
+            </div>
+
+            <video id="video" autoplay playsinline></video>
+            <canvas id="liveOverlay"></canvas>
+            <canvas id="captureCanvas"></canvas>
+            <canvas id="previewCanvas"></canvas>
+            <canvas id="resultCanvas"></canvas>
+
+            <div class="corner-overlay" id="cornerOverlay">
+                <svg id="cornerSvg">
+                    <polygon id="cornerPolygon" fill="rgba(0, 112, 243, 0.2)" stroke="#0070f3" stroke-width="1.5"/>
+                </svg>
+                <div class="corner-handle" id="handle-tl" data-corner="tl"></div>
+                <div class="corner-handle" id="handle-tr" data-corner="tr"></div>
+                <div class="corner-handle" id="handle-br" data-corner="br"></div>
+                <div class="corner-handle" id="handle-bl" data-corner="bl"></div>
+            </div>
+        </div>
+
+        <div class="controls" id="controls">
+            <div class="button-row" id="introControls">
+                <button class="primary" id="nativeCameraBtn" title="Hi-Res Photo">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </button>
+                <button id="startBtn" title="Live Camera">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                </button>
+                <button id="uploadBtn" title="Upload Photo">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                </button>
+                <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" style="display: none;">
+            </div>
+
+            <div class="button-row" id="cameraControls" style="display: none;">
+                <button id="captureBtn" class="primary" title="Capture">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </button>
+                <button id="cancelCameraBtn" title="Cancel">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="button-row" id="adjustControls" style="display: none;">
+                <button id="applyBtn" class="primary" title="Apply Transform">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </button>
+                <select id="interpolationSelect" title="Interpolation">
+                    <option value="lanczos4">Lanczos4</option>
+                    <option value="linear">Bilinear</option>
+                </select>
+                <button id="retakeBtn" title="Retake">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="button-row" id="resultControls" style="display: none;">
+                <button id="saveBtn" class="primary" title="Save">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                </button>
+                <button id="shareBtn" title="Share">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+                    </svg>
+                </button>
+                <button id="newScanBtn" title="New Scan">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">Processing...</div>
+    </div>
+
+    <!-- OpenCV.js -->
+    <script async src="https://docs.opencv.org/4.9.0/opencv.js" id="opencvScript"></script>
+
+    <script>
+        // State management
+        let state = 'intro';
+        let stream = null;
+        let cvReady = false;
+        let corners = null;
+        let originalImage = null;
+        let imageScale = 1;
+        let imageOffset = { x: 0, y: 0 };
+        let liveDetectionId = null;
+        let liveCorners = null;
+
+        // Interpolation setting
+        const interpolationSelect = document.getElementById('interpolationSelect');
+        const savedInterpolation = localStorage.getItem('docscanner-interpolation') || 'lanczos4';
+        interpolationSelect.value = savedInterpolation;
+        interpolationSelect.addEventListener('change', () => {
+            localStorage.setItem('docscanner-interpolation', interpolationSelect.value);
+        });
+
+        // DOM elements
+        const body = document.body;
+        const video = document.getElementById('video');
+        const liveOverlay = document.getElementById('liveOverlay');
+        const captureCanvas = document.getElementById('captureCanvas');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const resultCanvas = document.getElementById('resultCanvas');
+        const mainArea = document.getElementById('mainArea');
+        const status = document.getElementById('status');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        const cornerOverlay = document.getElementById('cornerOverlay');
+        const cornerPolygon = document.getElementById('cornerPolygon');
+        const fileInput = document.getElementById('fileInput');
+
+        // Control groups
+        const introControls = document.getElementById('introControls');
+        const cameraControls = document.getElementById('cameraControls');
+        const adjustControls = document.getElementById('adjustControls');
+        const resultControls = document.getElementById('resultControls');
+
+        // Corner handles
+        const handles = {
+            tl: document.getElementById('handle-tl'),
+            tr: document.getElementById('handle-tr'),
+            br: document.getElementById('handle-br'),
+            bl: document.getElementById('handle-bl')
+        };
+
+        // OpenCV ready callback
+        window.onOpenCvReady = function() {
+            cvReady = true;
+            setStatus('OpenCV ready');
+        };
+
+        // Check if OpenCV loaded
+        document.getElementById('opencvScript').onload = function() {
+            if (typeof cv !== 'undefined') {
+                cv.onRuntimeInitialized = () => {
+                    cvReady = true;
+                    setStatus('Ready');
+                };
+            }
+        };
+
+        function setState(newState) {
+            state = newState;
+            body.setAttribute('data-state', state);
+
+            // Show/hide control groups
+            introControls.style.display = state === 'intro' ? 'flex' : 'none';
+            cameraControls.style.display = state === 'camera' ? 'flex' : 'none';
+            adjustControls.style.display = state === 'adjust' ? 'flex' : 'none';
+            resultControls.style.display = state === 'result' ? 'flex' : 'none';
+        }
+
+        function setStatus(text) {
+            status.textContent = text;
+        }
+
+        function showLoading(text) {
+            loadingText.textContent = text;
+            loadingOverlay.classList.add('active');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.remove('active');
+        }
+
+        // Camera functions
+        let imageCapture = null;
+
+        async function startCamera() {
+            try {
+                showLoading('Starting camera...');
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 4032 },
+                        height: { ideal: 3024 }
+                    }
+                });
+                video.srcObject = stream;
+                await video.play();
+
+                // Wait for video dimensions to be available
+                while (!video.videoWidth || !video.videoHeight) {
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                console.log(`Video resolution: ${video.videoWidth}x${video.videoHeight}`);
+
+                // Initialize ImageCapture for high-res photo capture
+                const track = stream.getVideoTracks()[0];
+                if (typeof ImageCapture !== 'undefined') {
+                    imageCapture = new ImageCapture(track);
+                }
+
+                hideLoading();
+                setState('camera');
+                setStatus(`${video.videoWidth}x${video.videoHeight}`);
+                startLiveDetection();
+            } catch (err) {
+                hideLoading();
+                alert('Could not access camera: ' + err.message);
+            }
+        }
+
+        function stopCamera() {
+            stopLiveDetection();
+            imageCapture = null;
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            video.srcObject = null;
+        }
+
+        function startLiveDetection() {
+            console.log('startLiveDetection called, cvReady:', cvReady);
+            if (!cvReady) {
+                // Retry when OpenCV is ready
+                setTimeout(startLiveDetection, 200);
+                return;
+            }
+
+            console.log('Starting live detection loop');
+            let lastDetection = 0;
+            const detectionInterval = 150; // ms between detections
+
+            function detectFrame() {
+                if (state !== 'camera' || !stream) {
+                    return;
+                }
+
+                const now = performance.now();
+                if (now - lastDetection >= detectionInterval) {
+                    lastDetection = now;
+                    runLiveDetection();
+                }
+
+                liveDetectionId = requestAnimationFrame(detectFrame);
+            }
+
+            detectFrame();
+        }
+
+        function stopLiveDetection() {
+            if (liveDetectionId) {
+                cancelAnimationFrame(liveDetectionId);
+                liveDetectionId = null;
+            }
+            liveCorners = null;
+            const ctx = liveOverlay.getContext('2d');
+            ctx.clearRect(0, 0, liveOverlay.width, liveOverlay.height);
+        }
+
+        let detectionCount = 0;
+        function runLiveDetection() {
+            if (!video.videoWidth || !video.videoHeight) {
+                console.log('Video dimensions not ready');
+                return;
+            }
+
+            // Use full resolution for accurate corner detection
+            const w = video.videoWidth;
+            const h = video.videoHeight;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(video, 0, 0, w, h);
+
+            try {
+                const src = cv.imread(tempCanvas);
+                const detected = detectDocumentFast(src, w, h);
+                src.delete();
+
+                if (detected) {
+                    liveCorners = detected;
+                    if (detectionCount++ % 20 === 0) {
+                        console.log('Document detected:', liveCorners.tl);
+                    }
+                } else {
+                    liveCorners = null;
+                }
+
+                drawLiveOverlay();
+            } catch (err) {
+                console.error('Live detection error:', err);
+            }
+        }
+
+        function detectDocumentFast(src, width, height) {
+            try {
+                const gray = new cv.Mat();
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+                const blurred = new cv.Mat();
+                cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+
+                const edges = new cv.Mat();
+                cv.Canny(blurred, edges, 50, 150);
+
+                const dilated = new cv.Mat();
+                const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+                cv.dilate(edges, dilated, kernel);
+
+                const contours = new cv.MatVector();
+                const hierarchy = new cv.Mat();
+                cv.findContours(dilated, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                let result = null;
+                let maxArea = width * height * 0.1;
+
+                for (let i = 0; i < contours.size(); i++) {
+                    const contour = contours.get(i);
+                    const area = cv.contourArea(contour);
+
+                    if (area > maxArea) {
+                        const peri = cv.arcLength(contour, true);
+                        const approx = new cv.Mat();
+                        cv.approxPolyDP(contour, approx, 0.02 * peri, true);
+
+                        if (approx.rows === 4) {
+                            maxArea = area;
+                            const points = [];
+                            for (let j = 0; j < 4; j++) {
+                                points.push({
+                                    x: approx.data32S[j * 2],
+                                    y: approx.data32S[j * 2 + 1]
+                                });
+                            }
+                            result = orderPoints(points);
+                        }
+                        approx.delete();
+                    }
+                }
+
+                // Clean up
+                gray.delete();
+                blurred.delete();
+                edges.delete();
+                dilated.delete();
+                kernel.delete();
+                hierarchy.delete();
+                for (let i = 0; i < contours.size(); i++) {
+                    contours.get(i).delete();
+                }
+                contours.delete();
+
+                return result;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function drawLiveOverlay() {
+            const containerRect = mainArea.getBoundingClientRect();
+            const videoRect = video.getBoundingClientRect();
+
+            liveOverlay.width = containerRect.width;
+            liveOverlay.height = containerRect.height;
+
+            const ctx = liveOverlay.getContext('2d');
+            ctx.clearRect(0, 0, liveOverlay.width, liveOverlay.height);
+
+            if (!liveCorners) return;
+
+            // Use actual video element position (accounts for object-fit: contain)
+            const offsetX = videoRect.left - containerRect.left;
+            const offsetY = videoRect.top - containerRect.top;
+            const displayWidth = videoRect.width;
+            const displayHeight = videoRect.height;
+
+            const scaleX = displayWidth / video.videoWidth;
+            const scaleY = displayHeight / video.videoHeight;
+
+            // Transform corners to display coordinates
+            const points = ['tl', 'tr', 'br', 'bl'].map(key => ({
+                x: liveCorners[key].x * scaleX + offsetX,
+                y: liveCorners[key].y * scaleY + offsetY
+            }));
+
+            // Draw filled polygon
+            ctx.fillStyle = 'rgba(0, 112, 243, 0.15)';
+            ctx.strokeStyle = '#0070f3';
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw corner circles
+            ctx.fillStyle = '#0070f3';
+            for (const p of points) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        async function captureImage() {
+            showLoading('Capturing...');
+
+            try {
+                let imageBitmap;
+
+                // Try ImageCapture API for full sensor resolution
+                if (imageCapture) {
+                    try {
+                        const blob = await imageCapture.takePhoto();
+                        imageBitmap = await createImageBitmap(blob);
+                    } catch (e) {
+                        console.log('ImageCapture failed, using video frame:', e);
+                    }
+                }
+
+                // Fallback to video frame
+                if (!imageBitmap) {
+                    imageBitmap = await createImageBitmap(video);
+                }
+
+                captureCanvas.width = imageBitmap.width;
+                captureCanvas.height = imageBitmap.height;
+                const ctx = captureCanvas.getContext('2d');
+                ctx.drawImage(imageBitmap, 0, 0);
+
+                console.log(`Captured at ${imageBitmap.width}x${imageBitmap.height}`);
+                setStatus(`${imageBitmap.width}x${imageBitmap.height}`);
+
+                stopCamera();
+                hideLoading();
+
+                // Don't use live corners - resolution changed, need fresh detection
+                processImage(captureCanvas);
+            } catch (err) {
+                hideLoading();
+                alert('Capture failed: ' + err.message);
+            }
+        }
+
+        function loadImage(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    captureCanvas.width = img.width;
+                    captureCanvas.height = img.height;
+                    const ctx = captureCanvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    processImage(captureCanvas);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function processImage(canvas, predetectedCorners = null) {
+            showLoading('Detecting document...');
+            setStatus('Processing');
+
+            // Wait for OpenCV if not ready
+            if (!cvReady) {
+                let attempts = 0;
+                while (!cvReady && attempts < 50) {
+                    await new Promise(r => setTimeout(r, 100));
+                    attempts++;
+                }
+                if (!cvReady) {
+                    hideLoading();
+                    alert('OpenCV failed to load. Please refresh and try again.');
+                    setState('intro');
+                    return;
+                }
+            }
+
+            // Store original image
+            originalImage = cv.imread(canvas);
+
+            // Use predetected corners if available, otherwise detect
+            if (predetectedCorners) {
+                corners = predetectedCorners;
+            } else {
+                corners = detectDocument(originalImage);
+            }
+
+            // Draw preview
+            drawPreview();
+
+            hideLoading();
+            setState('adjust');
+            setStatus('Adjust corners');
+        }
+
+        function detectDocument(src) {
+            const width = src.cols;
+            const height = src.rows;
+
+            // Default corners (full image with margin)
+            const margin = 0.1;
+            let defaultCorners = {
+                tl: { x: width * margin, y: height * margin },
+                tr: { x: width * (1 - margin), y: height * margin },
+                br: { x: width * (1 - margin), y: height * (1 - margin) },
+                bl: { x: width * margin, y: height * (1 - margin) }
+            };
+
+            try {
+                // Convert to grayscale
+                const gray = new cv.Mat();
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+                // Apply Gaussian blur
+                const blurred = new cv.Mat();
+                cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+
+                // Edge detection
+                const edges = new cv.Mat();
+                cv.Canny(blurred, edges, 50, 150);
+
+                // Dilate to connect edges
+                const dilated = new cv.Mat();
+                const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+                cv.dilate(edges, dilated, kernel);
+
+                // Find contours
+                const contours = new cv.MatVector();
+                const hierarchy = new cv.Mat();
+                cv.findContours(dilated, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                let bestContour = null;
+                let maxArea = 0;
+                const minArea = width * height * 0.1; // At least 10% of image
+
+                for (let i = 0; i < contours.size(); i++) {
+                    const contour = contours.get(i);
+                    const area = cv.contourArea(contour);
+
+                    if (area > minArea && area > maxArea) {
+                        // Approximate polygon
+                        const peri = cv.arcLength(contour, true);
+                        const approx = new cv.Mat();
+                        cv.approxPolyDP(contour, approx, 0.02 * peri, true);
+
+                        // Check if it's a quadrilateral
+                        if (approx.rows === 4) {
+                            maxArea = area;
+                            bestContour = approx;
+                        } else {
+                            approx.delete();
+                        }
+                    }
+                }
+
+                // Clean up
+                gray.delete();
+                blurred.delete();
+                edges.delete();
+                dilated.delete();
+                kernel.delete();
+                hierarchy.delete();
+
+                if (bestContour) {
+                    // Extract corner points
+                    const points = [];
+                    for (let i = 0; i < 4; i++) {
+                        points.push({
+                            x: bestContour.data32S[i * 2],
+                            y: bestContour.data32S[i * 2 + 1]
+                        });
+                    }
+                    bestContour.delete();
+
+                    // Order points: top-left, top-right, bottom-right, bottom-left
+                    const orderedCorners = orderPoints(points);
+
+                    // Clean up contours
+                    for (let i = 0; i < contours.size(); i++) {
+                        contours.get(i).delete();
+                    }
+                    contours.delete();
+
+                    return orderedCorners;
+                }
+
+                // Clean up contours
+                for (let i = 0; i < contours.size(); i++) {
+                    contours.get(i).delete();
+                }
+                contours.delete();
+
+            } catch (err) {
+                console.error('Detection error:', err);
+            }
+
+            return defaultCorners;
+        }
+
+        function orderPoints(points) {
+            // Sort by y coordinate
+            points.sort((a, b) => a.y - b.y);
+
+            // Top two points
+            const top = points.slice(0, 2);
+            top.sort((a, b) => a.x - b.x);
+
+            // Bottom two points
+            const bottom = points.slice(2, 4);
+            bottom.sort((a, b) => a.x - b.x);
+
+            return {
+                tl: top[0],
+                tr: top[1],
+                bl: bottom[0],
+                br: bottom[1]
+            };
+        }
+
+        function drawPreview() {
+            const ctx = previewCanvas.getContext('2d');
+
+            // Calculate display size
+            const containerRect = mainArea.getBoundingClientRect();
+            const imgWidth = originalImage.cols;
+            const imgHeight = originalImage.rows;
+
+            const scaleX = containerRect.width / imgWidth;
+            const scaleY = containerRect.height / imgHeight;
+            imageScale = Math.min(scaleX, scaleY, 1);
+
+            const displayWidth = imgWidth * imageScale;
+            const displayHeight = imgHeight * imageScale;
+
+            previewCanvas.width = displayWidth;
+            previewCanvas.height = displayHeight;
+
+            // Calculate offset for centering
+            imageOffset.x = (containerRect.width - displayWidth) / 2;
+            imageOffset.y = (containerRect.height - displayHeight) / 2;
+
+            // Draw image
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = imgWidth;
+            tempCanvas.height = imgHeight;
+            cv.imshow(tempCanvas, originalImage);
+
+            ctx.drawImage(tempCanvas, 0, 0, displayWidth, displayHeight);
+
+            // Update corner handles
+            updateCornerHandles();
+        }
+
+        function updateCornerHandles() {
+            const containerRect = mainArea.getBoundingClientRect();
+
+            for (const [key, handle] of Object.entries(handles)) {
+                const corner = corners[key];
+                const x = corner.x * imageScale + imageOffset.x;
+                const y = corner.y * imageScale + imageOffset.y;
+                handle.style.left = x + 'px';
+                handle.style.top = y + 'px';
+            }
+
+            // Update polygon
+            const points = ['tl', 'tr', 'br', 'bl'].map(key => {
+                const corner = corners[key];
+                const x = corner.x * imageScale + imageOffset.x;
+                const y = corner.y * imageScale + imageOffset.y;
+                return `${x},${y}`;
+            }).join(' ');
+
+            cornerPolygon.setAttribute('points', points);
+        }
+
+        // Corner dragging
+        let activeHandle = null;
+        let handleKey = null;
+
+        function startDrag(e) {
+            const handle = e.target.closest('.corner-handle');
+            if (!handle) return;
+
+            e.preventDefault();
+            activeHandle = handle;
+            handleKey = handle.dataset.corner;
+
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', stopDrag);
+            document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('touchend', stopDrag);
+        }
+
+        function drag(e) {
+            if (!activeHandle) return;
+            e.preventDefault();
+
+            const containerRect = mainArea.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            // Convert to image coordinates
+            let x = (clientX - containerRect.left - imageOffset.x) / imageScale;
+            let y = (clientY - containerRect.top - imageOffset.y) / imageScale;
+
+            // Clamp to image bounds
+            x = Math.max(0, Math.min(x, originalImage.cols));
+            y = Math.max(0, Math.min(y, originalImage.rows));
+
+            corners[handleKey] = { x, y };
+            updateCornerHandles();
+        }
+
+        function stopDrag() {
+            activeHandle = null;
+            handleKey = null;
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('mouseup', stopDrag);
+            document.removeEventListener('touchmove', drag);
+            document.removeEventListener('touchend', stopDrag);
+        }
+
+        // Initialize drag handlers
+        Object.values(handles).forEach(handle => {
+            handle.addEventListener('mousedown', startDrag);
+            handle.addEventListener('touchstart', startDrag, { passive: false });
+        });
+
+        function applyPerspectiveTransform() {
+            showLoading('Transforming...');
+            setStatus('Processing');
+
+            setTimeout(() => {
+                try {
+                    // Calculate output dimensions
+                    const widthTop = Math.hypot(corners.tr.x - corners.tl.x, corners.tr.y - corners.tl.y);
+                    const widthBottom = Math.hypot(corners.br.x - corners.bl.x, corners.br.y - corners.bl.y);
+                    const heightLeft = Math.hypot(corners.bl.x - corners.tl.x, corners.bl.y - corners.tl.y);
+                    const heightRight = Math.hypot(corners.br.x - corners.tr.x, corners.br.y - corners.tr.y);
+
+                    const outputWidth = Math.round(Math.max(widthTop, widthBottom));
+                    const outputHeight = Math.round(Math.max(heightLeft, heightRight));
+
+                    // Source points (corners)
+                    const srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                        corners.tl.x, corners.tl.y,
+                        corners.tr.x, corners.tr.y,
+                        corners.br.x, corners.br.y,
+                        corners.bl.x, corners.bl.y
+                    ]);
+
+                    // Destination points (rectangle)
+                    const dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                        0, 0,
+                        outputWidth, 0,
+                        outputWidth, outputHeight,
+                        0, outputHeight
+                    ]);
+
+                    // Get perspective transform matrix
+                    const M = cv.getPerspectiveTransform(srcPts, dstPts);
+
+                    // Apply transform with selected interpolation
+                    const warped = new cv.Mat();
+                    const interpolation = interpolationSelect.value === 'lanczos4'
+                        ? cv.INTER_LANCZOS4
+                        : cv.INTER_LINEAR;
+                    cv.warpPerspective(originalImage, warped, M, new cv.Size(outputWidth, outputHeight), interpolation, cv.BORDER_CONSTANT, new cv.Scalar());
+
+                    // Display result
+                    const containerRect = mainArea.getBoundingClientRect();
+                    const scaleX = containerRect.width / outputWidth;
+                    const scaleY = containerRect.height / outputHeight;
+                    const scale = Math.min(scaleX, scaleY, 1);
+
+                    resultCanvas.width = outputWidth * scale;
+                    resultCanvas.height = outputHeight * scale;
+
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = outputWidth;
+                    tempCanvas.height = outputHeight;
+                    cv.imshow(tempCanvas, warped);
+
+                    const ctx = resultCanvas.getContext('2d');
+                    ctx.drawImage(tempCanvas, 0, 0, resultCanvas.width, resultCanvas.height);
+
+                    // Store full resolution result
+                    resultCanvas.fullWidth = outputWidth;
+                    resultCanvas.fullHeight = outputHeight;
+                    resultCanvas.fullData = tempCanvas.toDataURL('image/png');
+
+                    // Clean up
+                    srcPts.delete();
+                    dstPts.delete();
+                    M.delete();
+                    warped.delete();
+
+                    hideLoading();
+                    setState('result');
+                    setStatus('Scan complete');
+                } catch (err) {
+                    hideLoading();
+                    alert('Transform failed: ' + err.message);
+                    console.error(err);
+                }
+            }, 50);
+        }
+
+        function saveImage() {
+            const link = document.createElement('a');
+            link.download = 'scan-' + Date.now() + '.png';
+            link.href = resultCanvas.fullData;
+            link.click();
+            setStatus('Saved');
+        }
+
+        async function shareImage() {
+            if (!navigator.share) {
+                alert('Sharing is not supported on this device');
+                return;
+            }
+
+            try {
+                const response = await fetch(resultCanvas.fullData);
+                const blob = await response.blob();
+                const file = new File([blob], 'scan.png', { type: 'image/png' });
+
+                await navigator.share({
+                    files: [file],
+                    title: 'Scanned Document'
+                });
+                setStatus('Shared');
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    alert('Could not share: ' + err.message);
+                }
+            }
+        }
+
+        function resetToIntro() {
+            stopCamera();
+            if (originalImage) {
+                originalImage.delete();
+                originalImage = null;
+            }
+            corners = null;
+            setState('intro');
+            setStatus('Ready');
+        }
+
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', startCamera);
+        document.getElementById('uploadBtn').addEventListener('click', () => fileInput.click());
+        const nativeCameraInput = document.getElementById('nativeCameraInput');
+        document.getElementById('nativeCameraBtn').addEventListener('click', () => nativeCameraInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                loadImage(e.target.files[0]);
+            }
+        });
+        nativeCameraInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                loadImage(e.target.files[0]);
+                e.target.value = ''; // Reset for next use
+            }
+        });
+        document.getElementById('captureBtn').addEventListener('click', captureImage);
+        document.getElementById('cancelCameraBtn').addEventListener('click', () => {
+            stopCamera();
+            setState('intro');
+            setStatus('Ready');
+        });
+        document.getElementById('applyBtn').addEventListener('click', applyPerspectiveTransform);
+        document.getElementById('retakeBtn').addEventListener('click', () => {
+            if (originalImage) {
+                originalImage.delete();
+                originalImage = null;
+            }
+            startCamera();
+        });
+        document.getElementById('saveBtn').addEventListener('click', saveImage);
+        document.getElementById('shareBtn').addEventListener('click', shareImage);
+        document.getElementById('newScanBtn').addEventListener('click', resetToIntro);
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            if (state === 'adjust' && originalImage) {
+                drawPreview();
+            }
+        });
+
+        // Pinch-to-zoom for result view
+        let zoomLevel = 1;
+        let panX = 0, panY = 0;
+        let lastTouchDist = 0;
+        let lastTouchCenter = { x: 0, y: 0 };
+        let isPinching = false;
+
+        function updateResultTransform() {
+            resultCanvas.style.transform = `translate(-50%, -50%) scale(${zoomLevel}) translate(${panX}px, ${panY}px)`;
+        }
+
+        function resetZoom() {
+            zoomLevel = 1;
+            panX = 0;
+            panY = 0;
+            updateResultTransform();
+        }
+
+        function getTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.hypot(dx, dy);
+        }
+
+        function getTouchCenter(touches) {
+            return {
+                x: (touches[0].clientX + touches[1].clientX) / 2,
+                y: (touches[0].clientY + touches[1].clientY) / 2
+            };
+        }
+
+        resultCanvas.addEventListener('touchstart', (e) => {
+            if (state !== 'result') return;
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                isPinching = true;
+                lastTouchDist = getTouchDistance(e.touches);
+                lastTouchCenter = getTouchCenter(e.touches);
+            }
+        }, { passive: false });
+
+        resultCanvas.addEventListener('touchmove', (e) => {
+            if (state !== 'result' || !isPinching) return;
+            if (e.touches.length === 2) {
+                e.preventDefault();
+
+                const newDist = getTouchDistance(e.touches);
+                const newCenter = getTouchCenter(e.touches);
+
+                // Zoom
+                const scale = newDist / lastTouchDist;
+                zoomLevel = Math.max(1, Math.min(5, zoomLevel * scale));
+
+                // Pan (only when zoomed in)
+                if (zoomLevel > 1) {
+                    panX += (newCenter.x - lastTouchCenter.x) / zoomLevel;
+                    panY += (newCenter.y - lastTouchCenter.y) / zoomLevel;
+                }
+
+                updateResultTransform();
+
+                lastTouchDist = newDist;
+                lastTouchCenter = newCenter;
+            }
+        }, { passive: false });
+
+        resultCanvas.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                isPinching = false;
+            }
+            // Reset if zoomed out completely
+            if (zoomLevel <= 1) {
+                resetZoom();
+            }
+        });
+
+        // Double-tap to reset zoom
+        let lastTap = 0;
+        resultCanvas.addEventListener('touchend', (e) => {
+            if (state !== 'result') return;
+            const now = Date.now();
+            if (now - lastTap < 300 && e.touches.length === 0) {
+                resetZoom();
+            }
+            lastTap = now;
+        });
+
+        // Reset zoom when leaving result state
+        const originalSetState = setState;
+        setState = function(newState) {
+            if (state === 'result' && newState !== 'result') {
+                resetZoom();
+            }
+            originalSetState(newState);
+        };
+    </script>
+</body>
+</html>
