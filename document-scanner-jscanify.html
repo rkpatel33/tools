@@ -599,42 +599,73 @@
             bl: document.getElementById('handle-bl')
         };
 
-        function initOpenCV() {
-            if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
-                cv.onRuntimeInitialized = onOpenCVReady;
-            } else if (typeof cv !== 'undefined' && cv.Mat) {
-                onOpenCVReady();
-            } else {
-                setTimeout(initOpenCV, 100);
+        // Robust OpenCV + jscanify loader
+        function waitForOpenCV() {
+            setStatus('Loading OpenCV...');
+
+            function checkReady() {
+                // OpenCV is ready when cv.Mat constructor exists
+                if (typeof cv !== 'undefined') {
+                    // Try setting the callback for when runtime initializes
+                    if (cv.onRuntimeInitialized !== undefined) {
+                        cv.onRuntimeInitialized = onOpenCVReady;
+                    }
+                    // Also check if already ready
+                    if (cv.Mat) {
+                        onOpenCVReady();
+                        return;
+                    }
+                }
+                setTimeout(checkReady, 100);
+            }
+
+            checkReady();
+        }
+
+        let opencvInitialized = false;
+        function onOpenCVReady() {
+            if (opencvInitialized) return; // Prevent double init
+            opencvInitialized = true;
+            cvReady = true;
+            setStatus('Loading scanner...');
+            loadJscanify();
+        }
+
+        function loadJscanify() {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/jscanify@1.4.0/src/jscanify.js';
+            script.onload = initScanner;
+            script.onerror = function() {
+                // Try alternate CDN
+                const fallback = document.createElement('script');
+                fallback.src = 'https://cdn.jsdelivr.net/gh/ColonelParrot/jscanify@master/src/jscanify.js';
+                fallback.onload = initScanner;
+                fallback.onerror = function() {
+                    setStatus('Load failed');
+                    console.error('Failed to load jscanify');
+                };
+                document.head.appendChild(fallback);
+            };
+            document.head.appendChild(script);
+        }
+
+        function initScanner() {
+            try {
+                scanner = new jscanify();
+                setStatus('Ready');
+                console.log('Scanner ready');
+            } catch (e) {
+                setStatus('Init failed');
+                console.error('Failed to init jscanify:', e);
             }
         }
 
-        function onOpenCVReady() {
-            cvReady = true;
-            setStatus('Loading...');
-            const jscanifyScript = document.createElement('script');
-            jscanifyScript.src = 'https://cdn.jsdelivr.net/npm/jscanify@1.4.0/src/jscanify.js';
-            jscanifyScript.onload = function() {
-                scanner = new jscanify();
-                setStatus('Ready');
-            };
-            jscanifyScript.onerror = function() {
-                const fallbackScript = document.createElement('script');
-                fallbackScript.src = 'https://cdn.jsdelivr.net/gh/ColonelParrot/jscanify@1.4.0/src/jscanify.js';
-                fallbackScript.onload = function() {
-                    scanner = new jscanify();
-                    setStatus('Ready');
-                };
-                fallbackScript.onerror = function() {
-                    setStatus('Load failed');
-                };
-                document.body.appendChild(fallbackScript);
-            };
-            document.body.appendChild(jscanifyScript);
+        // Start loading when page is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', waitForOpenCV);
+        } else {
+            waitForOpenCV();
         }
-
-        document.getElementById('opencvScript').onload = initOpenCV;
-        if (document.getElementById('opencvScript').complete) initOpenCV();
 
         function setState(newState) {
             state = newState;
