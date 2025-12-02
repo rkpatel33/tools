@@ -152,16 +152,16 @@
         button {
             background: #171717;
             color: #ffffff;
-            border: 1px solid #333333;
-            padding: 10px 16px;
+            border: none;
+            padding: 8px 12px;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.15s ease;
+            transition: background 0.15s ease;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
         }
 
         button:hover {
@@ -169,12 +169,11 @@
         }
 
         button:active {
-            transform: scale(0.98);
+            opacity: 0.8;
         }
 
         button.primary {
             background: #0070f3;
-            border-color: #0070f3;
         }
 
         button.primary:hover {
