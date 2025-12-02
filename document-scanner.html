@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Document Scanner</title>
+
+    <!-- iOS PWA Configuration -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Doc Scanner">
+    <link rel="apple-touch-icon" href="icons/document-scanner-icon.png">
+
+    <!-- Android PWA Configuration -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0a0a0a">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -190,6 +200,28 @@
             height: 16px;
         }
 
+        select {
+            background: #171717;
+            color: #ffffff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 14px;
+            padding-right: 28px;
+        }
+
+        select:focus {
+            outline: none;
+        }
+
         .loading-overlay {
             display: none;
             position: fixed;
@@ -332,7 +364,13 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
-                    Start Camera
+                    Live
+                </button>
+                <button id="nativeCameraBtn">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                    </svg>
+                    Hi-Res
                 </button>
                 <button id="uploadBtn">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -341,6 +379,7 @@
                     Upload
                 </button>
                 <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" style="display: none;">
             </div>
 
             <div class="button-row" id="cameraControls" style="display: none;">
@@ -360,6 +399,10 @@
                     </svg>
                     Apply
                 </button>
+                <select id="interpolationSelect">
+                    <option value="lanczos4">Lanczos4 (Sharp)</option>
+                    <option value="linear">Bilinear (Fast)</option>
+                </select>
                 <button id="retakeBtn">Retake</button>
             </div>
 
@@ -400,6 +443,14 @@
         let imageOffset = { x: 0, y: 0 };
         let liveDetectionId = null;
         let liveCorners = null;
+
+        // Interpolation setting
+        const interpolationSelect = document.getElementById('interpolationSelect');
+        const savedInterpolation = localStorage.getItem('docscanner-interpolation') || 'lanczos4';
+        interpolationSelect.value = savedInterpolation;
+        interpolationSelect.addEventListener('change', () => {
+            localStorage.setItem('docscanner-interpolation', interpolationSelect.value);
+        });
 
         // DOM elements
         const body = document.body;
@@ -1075,9 +1126,12 @@
                     // Get perspective transform matrix
                     const M = cv.getPerspectiveTransform(srcPts, dstPts);
 
-                    // Apply transform
+                    // Apply transform with selected interpolation
                     const warped = new cv.Mat();
-                    cv.warpPerspective(originalImage, warped, M, new cv.Size(outputWidth, outputHeight));
+                    const interpolation = interpolationSelect.value === 'lanczos4'
+                        ? cv.INTER_LANCZOS4
+                        : cv.INTER_LINEAR;
+                    cv.warpPerspective(originalImage, warped, M, new cv.Size(outputWidth, outputHeight), interpolation, cv.BORDER_CONSTANT, new cv.Scalar());
 
                     // Display result
                     const containerRect = mainArea.getBoundingClientRect();
@@ -1163,9 +1217,17 @@
         // Event listeners
         document.getElementById('startBtn').addEventListener('click', startCamera);
         document.getElementById('uploadBtn').addEventListener('click', () => fileInput.click());
+        const nativeCameraInput = document.getElementById('nativeCameraInput');
+        document.getElementById('nativeCameraBtn').addEventListener('click', () => nativeCameraInput.click());
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 loadImage(e.target.files[0]);
+            }
+        });
+        nativeCameraInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                loadImage(e.target.files[0]);
+                e.target.value = ''; // Reset for next use
             }
         });
         document.getElementById('captureBtn').addEventListener('click', captureImage);
