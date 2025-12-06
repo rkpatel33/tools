@@ -115,7 +115,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
+            pointer-events: auto;
+            touch-action: none;
         }
 
         .corner-overlay.active {
@@ -131,9 +132,7 @@
             width: 0;
             height: 0;
             position: absolute;
-            cursor: grab;
-            pointer-events: auto;
-            touch-action: none;
+            pointer-events: none;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
         }
 
@@ -165,10 +164,6 @@
             transform: translate(-100%, 0%);
         }
 
-        .corner-handle:active {
-            cursor: grabbing;
-            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)) brightness(1.2);
-        }
 
         .controls {
             padding: 12px 16px;
@@ -1089,26 +1084,30 @@
             cornerPolygon.setAttribute('points', points);
         }
 
-        // Corner dragging
-        let activeHandle = null;
-        let handleKey = null;
+        // Corner dragging - drag from anywhere, finds nearest corner
+        let dragCornerKey = null;
+        let dragStartPos = null;
+        let dragStartCorner = null;
 
-        function startDrag(e) {
-            const handle = e.target.closest('.corner-handle');
-            if (!handle) return;
+        function findNearestCorner(x, y) {
+            // x, y in screen coordinates relative to container
+            let nearest = null;
+            let minDist = Infinity;
 
-            e.preventDefault();
-            activeHandle = handle;
-            handleKey = handle.dataset.corner;
-
-            document.addEventListener('mousemove', drag);
-            document.addEventListener('mouseup', stopDrag);
-            document.addEventListener('touchmove', drag, { passive: false });
-            document.addEventListener('touchend', stopDrag);
+            for (const key of ['tl', 'tr', 'br', 'bl']) {
+                const corner = corners[key];
+                const screenX = corner.x * imageScale + imageOffset.x;
+                const screenY = corner.y * imageScale + imageOffset.y;
+                const dist = Math.hypot(x - screenX, y - screenY);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = key;
+                }
+            }
+            return nearest;
         }
 
-        function drag(e) {
-            if (!activeHandle) return;
+        function startDrag(e) {
             e.preventDefault();
 
             const containerRect = mainArea.getBoundingClientRect();
@@ -1122,49 +1121,63 @@
                 clientY = e.clientY;
             }
 
-            // Convert to image coordinates
-            let x = (clientX - containerRect.left - imageOffset.x) / imageScale;
-            let y = (clientY - containerRect.top - imageOffset.y) / imageScale;
+            const x = clientX - containerRect.left;
+            const y = clientY - containerRect.top;
 
-            // Offset so corner stays at triangle tip, not under finger
-            // Touch area is outside triangle, offset corner toward center
-            const offsetPx = 40 / imageScale;
-            if (handleKey === 'tl') {
-                x += offsetPx;
-                y += offsetPx;
-            } else if (handleKey === 'tr') {
-                x -= offsetPx;
-                y += offsetPx;
-            } else if (handleKey === 'br') {
-                x -= offsetPx;
-                y -= offsetPx;
-            } else if (handleKey === 'bl') {
-                x += offsetPx;
-                y -= offsetPx;
+            // Find nearest corner
+            dragCornerKey = findNearestCorner(x, y);
+            dragStartPos = { x: clientX, y: clientY };
+            dragStartCorner = { ...corners[dragCornerKey] };
+
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', stopDrag);
+            document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('touchend', stopDrag);
+        }
+
+        function drag(e) {
+            if (!dragCornerKey) return;
+            e.preventDefault();
+
+            let clientX, clientY;
+
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
             }
+
+            // Calculate delta in image coordinates
+            const deltaX = (clientX - dragStartPos.x) / imageScale;
+            const deltaY = (clientY - dragStartPos.y) / imageScale;
+
+            // Apply delta to original corner position
+            let x = dragStartCorner.x + deltaX;
+            let y = dragStartCorner.y + deltaY;
 
             // Clamp to image bounds
             x = Math.max(0, Math.min(x, originalImage.cols));
             y = Math.max(0, Math.min(y, originalImage.rows));
 
-            corners[handleKey] = { x, y };
+            corners[dragCornerKey] = { x, y };
             updateCornerHandles();
         }
 
         function stopDrag() {
-            activeHandle = null;
-            handleKey = null;
+            dragCornerKey = null;
+            dragStartPos = null;
+            dragStartCorner = null;
             document.removeEventListener('mousemove', drag);
             document.removeEventListener('mouseup', stopDrag);
             document.removeEventListener('touchmove', drag);
             document.removeEventListener('touchend', stopDrag);
         }
 
-        // Initialize drag handlers
-        Object.values(handles).forEach(handle => {
-            handle.addEventListener('mousedown', startDrag);
-            handle.addEventListener('touchstart', startDrag, { passive: false });
-        });
+        // Initialize drag on entire overlay
+        cornerOverlay.addEventListener('mousedown', startDrag);
+        cornerOverlay.addEventListener('touchstart', startDrag, { passive: false });
 
         function applyPerspectiveTransform() {
             showLoading('Transforming...');
