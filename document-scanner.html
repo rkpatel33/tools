@@ -115,7 +115,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
+            pointer-events: auto;
+            touch-action: none;
         }
 
         .corner-overlay.active {
@@ -128,23 +129,41 @@
         }
 
         .corner-handle {
-            width: 22px;
-            height: 22px;
-            background: #0070f3;
-            border: 2px solid #ffffff;
-            border-radius: 50%;
+            width: 0;
+            height: 0;
             position: absolute;
-            transform: translate(-50%, -50%);
-            cursor: grab;
-            pointer-events: auto;
-            touch-action: none;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
         }
 
-        .corner-handle:active {
-            cursor: grabbing;
-            background: #0060d1;
+        /* Triangle pointing toward top-left corner */
+        .corner-handle[data-corner="tl"] {
+            border-left: 40px solid transparent;
+            border-bottom: 40px solid #ff00ff;
+            transform: translate(-100%, -100%);
         }
+
+        /* Triangle pointing toward top-right corner */
+        .corner-handle[data-corner="tr"] {
+            border-right: 40px solid transparent;
+            border-bottom: 40px solid #ff00ff;
+            transform: translate(0%, -100%);
+        }
+
+        /* Triangle pointing toward bottom-right corner */
+        .corner-handle[data-corner="br"] {
+            border-right: 40px solid transparent;
+            border-top: 40px solid #ff00ff;
+            transform: translate(0%, 0%);
+        }
+
+        /* Triangle pointing toward bottom-left corner */
+        .corner-handle[data-corner="bl"] {
+            border-left: 40px solid transparent;
+            border-top: 40px solid #ff00ff;
+            transform: translate(-100%, 0%);
+        }
+
 
         .controls {
             padding: 12px 16px;
@@ -354,7 +373,7 @@
 
             <div class="corner-overlay" id="cornerOverlay">
                 <svg id="cornerSvg">
-                    <polygon id="cornerPolygon" fill="rgba(0, 112, 243, 0.2)" stroke="#0070f3" stroke-width="1.5"/>
+                    <polygon id="cornerPolygon" fill="none" stroke="#00aaff" stroke-width="3"/>
                 </svg>
                 <div class="corner-handle" id="handle-tl" data-corner="tl"></div>
                 <div class="corner-handle" id="handle-tr" data-corner="tr"></div>
@@ -747,10 +766,9 @@
                 y: liveCorners[key].y * scaleY + offsetY
             }));
 
-            // Draw filled polygon
-            ctx.fillStyle = 'rgba(0, 112, 243, 0.15)';
-            ctx.strokeStyle = '#0070f3';
-            ctx.lineWidth = 2;
+            // Draw outline only (no fill)
+            ctx.strokeStyle = '#00aaff';
+            ctx.lineWidth = 3;
 
             ctx.beginPath();
             ctx.moveTo(points[0].x, points[0].y);
@@ -758,15 +776,38 @@
                 ctx.lineTo(points[i].x, points[i].y);
             }
             ctx.closePath();
-            ctx.fill();
             ctx.stroke();
 
-            // Draw corner circles
-            ctx.fillStyle = '#0070f3';
-            for (const p of points) {
+            // Draw corner triangles
+            ctx.fillStyle = '#ff00ff';
+            const triangleSize = 20;
+
+            // Triangle pointing to each corner
+            const drawTriangle = (x, y, corner) => {
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+                if (corner === 0) { // top-left
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x - triangleSize, y);
+                    ctx.lineTo(x, y - triangleSize);
+                } else if (corner === 1) { // top-right
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + triangleSize, y);
+                    ctx.lineTo(x, y - triangleSize);
+                } else if (corner === 2) { // bottom-right
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + triangleSize, y);
+                    ctx.lineTo(x, y + triangleSize);
+                } else { // bottom-left
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x - triangleSize, y);
+                    ctx.lineTo(x, y + triangleSize);
+                }
+                ctx.closePath();
                 ctx.fill();
+            };
+
+            for (let i = 0; i < points.length; i++) {
+                drawTriangle(points[i].x, points[i].y, i);
             }
         }
 
@@ -1043,26 +1084,30 @@
             cornerPolygon.setAttribute('points', points);
         }
 
-        // Corner dragging
-        let activeHandle = null;
-        let handleKey = null;
+        // Corner dragging - drag from anywhere, finds nearest corner
+        let dragCornerKey = null;
+        let dragStartPos = null;
+        let dragStartCorner = null;
 
-        function startDrag(e) {
-            const handle = e.target.closest('.corner-handle');
-            if (!handle) return;
+        function findNearestCorner(x, y) {
+            // x, y in screen coordinates relative to container
+            let nearest = null;
+            let minDist = Infinity;
 
-            e.preventDefault();
-            activeHandle = handle;
-            handleKey = handle.dataset.corner;
-
-            document.addEventListener('mousemove', drag);
-            document.addEventListener('mouseup', stopDrag);
-            document.addEventListener('touchmove', drag, { passive: false });
-            document.addEventListener('touchend', stopDrag);
+            for (const key of ['tl', 'tr', 'br', 'bl']) {
+                const corner = corners[key];
+                const screenX = corner.x * imageScale + imageOffset.x;
+                const screenY = corner.y * imageScale + imageOffset.y;
+                const dist = Math.hypot(x - screenX, y - screenY);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = key;
+                }
+            }
+            return nearest;
         }
 
-        function drag(e) {
-            if (!activeHandle) return;
+        function startDrag(e) {
             e.preventDefault();
 
             const containerRect = mainArea.getBoundingClientRect();
@@ -1076,32 +1121,63 @@
                 clientY = e.clientY;
             }
 
-            // Convert to image coordinates
-            let x = (clientX - containerRect.left - imageOffset.x) / imageScale;
-            let y = (clientY - containerRect.top - imageOffset.y) / imageScale;
+            const x = clientX - containerRect.left;
+            const y = clientY - containerRect.top;
+
+            // Find nearest corner
+            dragCornerKey = findNearestCorner(x, y);
+            dragStartPos = { x: clientX, y: clientY };
+            dragStartCorner = { ...corners[dragCornerKey] };
+
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', stopDrag);
+            document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('touchend', stopDrag);
+        }
+
+        function drag(e) {
+            if (!dragCornerKey) return;
+            e.preventDefault();
+
+            let clientX, clientY;
+
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            // Calculate delta in image coordinates
+            const deltaX = (clientX - dragStartPos.x) / imageScale;
+            const deltaY = (clientY - dragStartPos.y) / imageScale;
+
+            // Apply delta to original corner position
+            let x = dragStartCorner.x + deltaX;
+            let y = dragStartCorner.y + deltaY;
 
             // Clamp to image bounds
             x = Math.max(0, Math.min(x, originalImage.cols));
             y = Math.max(0, Math.min(y, originalImage.rows));
 
-            corners[handleKey] = { x, y };
+            corners[dragCornerKey] = { x, y };
             updateCornerHandles();
         }
 
         function stopDrag() {
-            activeHandle = null;
-            handleKey = null;
+            dragCornerKey = null;
+            dragStartPos = null;
+            dragStartCorner = null;
             document.removeEventListener('mousemove', drag);
             document.removeEventListener('mouseup', stopDrag);
             document.removeEventListener('touchmove', drag);
             document.removeEventListener('touchend', stopDrag);
         }
 
-        // Initialize drag handlers
-        Object.values(handles).forEach(handle => {
-            handle.addEventListener('mousedown', startDrag);
-            handle.addEventListener('touchstart', startDrag, { passive: false });
-        });
+        // Initialize drag on entire overlay
+        cornerOverlay.addEventListener('mousedown', startDrag);
+        cornerOverlay.addEventListener('touchstart', startDrag, { passive: false });
 
         function applyPerspectiveTransform() {
             showLoading('Transforming...');
