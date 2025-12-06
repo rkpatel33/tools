@@ -1126,6 +1126,23 @@
             let x = (clientX - containerRect.left - imageOffset.x) / imageScale;
             let y = (clientY - containerRect.top - imageOffset.y) / imageScale;
 
+            // Offset so corner stays at triangle tip, not under finger
+            // Triangle is 40px, offset corner away from touch point
+            const offsetPx = 40 / imageScale;
+            if (handleKey === 'tl') {
+                x -= offsetPx;
+                y -= offsetPx;
+            } else if (handleKey === 'tr') {
+                x += offsetPx;
+                y -= offsetPx;
+            } else if (handleKey === 'br') {
+                x += offsetPx;
+                y += offsetPx;
+            } else if (handleKey === 'bl') {
+                x -= offsetPx;
+                y += offsetPx;
+            }
+
             // Clamp to image bounds
             x = Math.max(0, Math.min(x, originalImage.cols));
             y = Math.max(0, Math.min(y, originalImage.rows));
