@@ -128,22 +128,46 @@
         }
 
         .corner-handle {
-            width: 22px;
-            height: 22px;
-            background: #0070f3;
-            border: 2px solid #ffffff;
-            border-radius: 50%;
+            width: 0;
+            height: 0;
             position: absolute;
-            transform: translate(-50%, -50%);
             cursor: grab;
             pointer-events: auto;
             touch-action: none;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+        }
+
+        /* Triangle pointing toward top-left corner */
+        .corner-handle[data-corner="tl"] {
+            border-left: 40px solid transparent;
+            border-bottom: 40px solid #ff00ff;
+            transform: translate(-100%, -100%);
+        }
+
+        /* Triangle pointing toward top-right corner */
+        .corner-handle[data-corner="tr"] {
+            border-right: 40px solid transparent;
+            border-bottom: 40px solid #ff00ff;
+            transform: translate(0%, -100%);
+        }
+
+        /* Triangle pointing toward bottom-right corner */
+        .corner-handle[data-corner="br"] {
+            border-right: 40px solid transparent;
+            border-top: 40px solid #ff00ff;
+            transform: translate(0%, 0%);
+        }
+
+        /* Triangle pointing toward bottom-left corner */
+        .corner-handle[data-corner="bl"] {
+            border-left: 40px solid transparent;
+            border-top: 40px solid #ff00ff;
+            transform: translate(-100%, 0%);
         }
 
         .corner-handle:active {
             cursor: grabbing;
-            background: #0060d1;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)) brightness(1.2);
         }
 
         .controls {
@@ -354,7 +378,7 @@
 
             <div class="corner-overlay" id="cornerOverlay">
                 <svg id="cornerSvg">
-                    <polygon id="cornerPolygon" fill="rgba(0, 112, 243, 0.2)" stroke="#0070f3" stroke-width="1.5"/>
+                    <polygon id="cornerPolygon" fill="none" stroke="#00aaff" stroke-width="3"/>
                 </svg>
                 <div class="corner-handle" id="handle-tl" data-corner="tl"></div>
                 <div class="corner-handle" id="handle-tr" data-corner="tr"></div>
@@ -747,10 +771,9 @@
                 y: liveCorners[key].y * scaleY + offsetY
             }));
 
-            // Draw filled polygon
-            ctx.fillStyle = 'rgba(0, 112, 243, 0.15)';
-            ctx.strokeStyle = '#0070f3';
-            ctx.lineWidth = 2;
+            // Draw outline only (no fill)
+            ctx.strokeStyle = '#00aaff';
+            ctx.lineWidth = 3;
 
             ctx.beginPath();
             ctx.moveTo(points[0].x, points[0].y);
@@ -758,15 +781,38 @@
                 ctx.lineTo(points[i].x, points[i].y);
             }
             ctx.closePath();
-            ctx.fill();
             ctx.stroke();
 
-            // Draw corner circles
-            ctx.fillStyle = '#0070f3';
-            for (const p of points) {
+            // Draw corner triangles
+            ctx.fillStyle = '#ff00ff';
+            const triangleSize = 20;
+
+            // Triangle pointing to each corner
+            const drawTriangle = (x, y, corner) => {
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+                if (corner === 0) { // top-left
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x - triangleSize, y);
+                    ctx.lineTo(x, y - triangleSize);
+                } else if (corner === 1) { // top-right
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + triangleSize, y);
+                    ctx.lineTo(x, y - triangleSize);
+                } else if (corner === 2) { // bottom-right
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + triangleSize, y);
+                    ctx.lineTo(x, y + triangleSize);
+                } else { // bottom-left
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x - triangleSize, y);
+                    ctx.lineTo(x, y + triangleSize);
+                }
+                ctx.closePath();
                 ctx.fill();
+            };
+
+            for (let i = 0; i < points.length; i++) {
+                drawTriangle(points[i].x, points[i].y, i);
             }
         }
 
