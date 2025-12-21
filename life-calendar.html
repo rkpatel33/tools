@@ -1,637 +1,998 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Life Calendar</title>
-  <style>
-    :root {
-      --bg-dark: #0d1117;
-      --bg-card: #161b22;
-      --bg-cell: #21262d;
-      --text-primary: #e6edf3;
-      --text-secondary: #8b949e;
-      --text-muted: #6e7681;
-      --border: #30363d;
-      --lived: #e6edf3;
-      --lived-dim: #8b949e;
-      --future: #21262d;
-      --before-birth: transparent;
-      --cell-size: 10px;
-      --cell-gap: 4px;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-      background: var(--bg-dark);
-      color: var(--text-primary);
-      height: 100vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .container {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-      padding: 1.5rem 2rem 0 2rem;
-    }
-
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 2rem;
-      padding-bottom: 1rem;
-      flex-shrink: 0;
-    }
-
-    .left-section {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .right-section {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      align-items: flex-start;
-      flex: 1;
-    }
-
-    header {
-      text-align: left;
-    }
-
-    h1 {
-      font-size: 1.75rem;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      margin-bottom: 0.25rem;
-    }
-
-    .subtitle {
-      color: var(--text-muted);
-      font-size: 0.8rem;
-    }
-
-    .stats {
-      display: flex;
-      gap: 1.5rem;
-    }
-
-    .stat {
-      text-align: left;
-    }
-
-    .stat-value {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .stat-label {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .calendar-wrapper {
-      flex: 1;
-      overflow: auto;
-    }
-
-    .calendar-inner {
-      width: fit-content;
-      margin: 0 auto;
-    }
-
-    .calendar {
-      padding-bottom: 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: var(--cell-gap);
-    }
-
-    .week-header {
-      display: flex;
-      gap: var(--cell-gap);
-      margin-bottom: 4px;
-      padding-left: 60px;
-    }
-
-    .week-number {
-      width: var(--cell-size);
-      font-size: 8px;
-      color: var(--text-muted);
-      text-align: center;
-    }
-
-    .month-markers {
-      position: sticky;
-      top: 0;
-      background: var(--bg-dark);
-      z-index: 100;
-      padding-bottom: 8px;
-    }
-
-    .month-marker {
-      font-size: 9px;
-      color: var(--text-secondary);
-      text-align: left;
-      position: relative;
-    }
-
-    .year-row {
-      display: flex;
-      gap: var(--cell-gap);
-      align-items: center;
-    }
-
-    .year-label {
-      width: 80px;
-      min-width: 80px;
-      font-size: 10px;
-      color: var(--text-muted);
-      text-align: right;
-      padding-right: 8px;
-      white-space: nowrap;
-    }
-
-    .year-label.decade {
-      color: var(--text-secondary);
-      font-weight: 600;
-    }
-
-    .year-label.milestone {
-      color: #FFD700;
-      font-weight: 700;
-    }
-
-    .weeks-container {
-      display: flex;
-      gap: var(--cell-gap);
-    }
-
-    .week {
-      width: var(--cell-size);
-      height: var(--cell-size);
-      border-radius: 50%;
-      background: var(--bg-cell);
-      position: relative;
-      cursor: default;
-      flex-shrink: 0;
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
-    }
-
-    .week.before-birth {
-      background: var(--before-birth);
-      border: 1px dashed var(--border);
-      opacity: 0.3;
-    }
-
-    .week.lived {
-      background: var(--lived-dim);
-    }
-
-    .week.current {
-      background: var(--lived);
-      box-shadow: 0 0 6px var(--lived);
-    }
-
-    .week.future {
-      background: #3d444d;
-      opacity: 0.7;
-    }
-
-    .week.has-event {
-      cursor: pointer;
-    }
-
-    .week.has-event:hover,
-    .week.lived:hover,
-    .week.current:hover {
-      transform: scale(1.8);
-      z-index: 100;
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-    }
-
-    .tooltip {
-      position: fixed;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 10px 14px;
-      font-size: 12px;
-      color: var(--text-primary);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-      z-index: 1000;
-      pointer-events: none;
-      max-width: 320px;
-    }
-
-    .tooltip-header {
-      font-weight: 600;
-      margin-bottom: 6px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 6px;
-    }
-
-    .tooltip-dates {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-bottom: 8px;
-    }
-
-    .tooltip-events {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .tooltip-event {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .tooltip-event-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 2px;
-      flex-shrink: 0;
-    }
-
-    .tooltip-event-name {
-      color: var(--text-secondary);
-    }
-
-    .legend {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      justify-content: flex-start;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .legend-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
-
-    .legend-dot.born { background: #FFD700; }
-    .legend-dot.lived { background: var(--lived-dim); }
-    .legend-dot.current { background: var(--lived); box-shadow: 0 0 4px var(--lived); }
-    .legend-dot.future { background: #3d444d; opacity: 0.7; }
-
-    /* Category legend */
-    .category-legend {
-      flex: 1;
-      max-width: 800px;
-    }
-
-    .category-legend h3 {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      margin-bottom: 0.5rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      text-align: left;
-    }
-
-    .event-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem 0.75rem;
-      justify-content: flex-start;
-    }
-
-    .event-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .event-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .event-item {
-      cursor: pointer;
-      padding: 2px 4px;
-      border-radius: 3px;
-      transition: background 0.15s ease;
-      font-size: 10px;
-    }
-
-    .event-item:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    .week.legend-highlight {
-      box-shadow: 0 0 4px 2px rgba(255, 255, 255, 0.8);
-      z-index: 50;
-    }
-
-    .week.legend-dim {
-      opacity: 0.15 !important;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="top-bar">
-      <div class="left-section">
-        <header>
-          <h1>Life Calendar</h1>
-          <p class="subtitle">Each row is a year. Each box is a week.</p>
-        </header>
-        <div class="stats" id="stats"></div>
-      </div>
-
-      <div class="right-section">
-        <div class="legend">
-          <div class="legend-item">
-            <div class="legend-dot born"></div>
-            <span>Born</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-dot lived"></div>
-            <span>Lived</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-dot current"></div>
-            <span>Now</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-dot future"></div>
-            <span>Future</span>
-          </div>
-        </div>
-        <div class="category-legend" id="event-legend"></div>
-      </div>
-    </div>
-
-    <div class="calendar-wrapper">
-      <div class="calendar-inner">
-        <div class="month-markers" id="month-markers"></div>
-        <div class="calendar" id="calendar"></div>
-      </div>
-    </div>
-
-  </div>
-
-  <div class="tooltip" id="tooltip" style="display: none;"></div>
-
-  <script>
-    // Configuration
-    const CONFIG = {
-      birthDate: new Date('1975-12-12'),
-      lifespan: 80,
-      startYear: 1975,
-    };
-
-    const WEEKS_PER_YEAR = 52;
-
-    // Embedded events data
-    const EVENTS = [
-      { id: "birth", name: "Born", start: "1975-12-12", end: "1975-12-12", category: "personal", color: "#FFD700" },
-      { id: "met-hilary", name: "Met Hilary", start: "2025-07-25", end: "2025-07-25", category: "personal", color: "#FF69B4" },
-      { id: "high-school", name: "High School", start: "1990-01-01", end: "1994-05-31", category: "education", color: "#4A90D9" },
-      { id: "college", name: "College", start: "1994-09-01", end: "1998-05-31", category: "education", color: "#6B5B95" },
-      { id: "elliott", name: "Elliott", start: "2005-02-01", end: "2012-02-28", category: "career", color: "#E67E22" },
-      { id: "berlin-wall", name: "Fall of Berlin Wall", start: "1989-11-09", end: "1989-11-09", category: "historical", color: "#808080" },
-      { id: "gulf-war-1", name: "Gulf War I", start: "1990-08-02", end: "1991-02-28", category: "historical", color: "#8B4513" },
-      { id: "soviet-collapse", name: "Soviet Union Dissolution", start: "1991-12-26", end: "1991-12-26", category: "historical", color: "#808080" },
-      { id: "dotcom-boom", name: "Dot-com Boom", start: "1995-01-01", end: "2000-03-10", category: "historical", color: "#28A745" },
-      { id: "dotcom-crash", name: "Dot-com Crash", start: "2000-03-11", end: "2002-10-09", category: "historical", color: "#DC3545" },
-      { id: "sept-11", name: "September 11 Attacks", start: "2001-09-11", end: "2001-09-11", category: "historical", color: "#000000" },
-      { id: "afghanistan-war", name: "War in Afghanistan", start: "2001-10-07", end: "2021-08-30", category: "historical", color: "#8B4513" },
-      { id: "iraq-war", name: "Iraq War", start: "2003-03-20", end: "2011-12-18", category: "historical", color: "#8B4513" },
-      { id: "iphone", name: "iPhone Released", start: "2007-06-29", end: "2007-06-29", category: "historical", color: "#A2AAAD" },
-      { id: "financial-crisis", name: "Great Financial Crisis", start: "2007-12-01", end: "2009-06-30", category: "historical", color: "#DC3545" },
-      { id: "obama", name: "Obama Presidency", start: "2009-01-20", end: "2017-01-20", category: "historical", color: "#0052A5" },
-      { id: "covid", name: "COVID-19 Pandemic", start: "2020-03-11", end: "2023-05-05", category: "historical", color: "#FF6B6B" },
-      { id: "chatgpt", name: "ChatGPT Released", start: "2022-11-30", end: "2022-11-30", category: "historical", color: "#10A37F" },
-    ];
-
-    // Date utilities
-    function getWeekNumber(date) {
-      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-      const dayNum = d.getUTCDay() || 7;
-      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    }
-
-    function getWeekStart(year, weekNum) {
-      // ISO week date: Week 1 is the week with the first Thursday
-      const jan4 = new Date(year, 0, 4);
-      const dayOfWeek = jan4.getDay() || 7; // Monday = 1, Sunday = 7
-      const monday = new Date(jan4);
-      monday.setDate(jan4.getDate() - dayOfWeek + 1); // First Monday
-      monday.setDate(monday.getDate() + (weekNum - 1) * 7);
-      return monday;
-    }
-
-    function getWeekEnd(year, weekNum) {
-      const start = getWeekStart(year, weekNum);
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      return end;
-    }
-
-    function formatDate(date) {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    }
-
-    function formatDateShort(date) {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-    }
-
-    function dateToString(date) {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
-
-    function stringToDate(str) {
-      return new Date(str + 'T12:00:00');
-    }
-
-    // Check if a week contains any events
-    function getEventsForWeek(weekStart, weekEnd) {
-      const startStr = dateToString(weekStart);
-      const endStr = dateToString(weekEnd);
-
-      return EVENTS.filter(event => {
-        // Event overlaps with week if event.start <= weekEnd AND event.end >= weekStart
-        return event.start <= endStr && event.end >= startStr;
-      });
-    }
-
-    // Month start weeks (approximate)
-    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    // Approximate week numbers where each month starts
-    const MONTH_WEEK_STARTS = [1, 5, 9, 14, 18, 22, 27, 31, 35, 40, 44, 48];
-
-    // Render the calendar
-    function renderCalendar() {
-      const calendar = document.getElementById('calendar');
-      const today = new Date();
-      today.setHours(12, 0, 0, 0);
-      const currentWeek = getWeekNumber(today);
-      const currentYear = today.getFullYear();
-      const birthStr = dateToString(CONFIG.birthDate);
-      const endYear = CONFIG.startYear + CONFIG.lifespan;
-
-      let weeksLived = 0;
-      let totalWeeks = 0;
-
-      // Create month markers header (in separate fixed element)
-      const monthMarkersEl = document.getElementById('month-markers');
-      monthMarkersEl.innerHTML = '';
-      monthMarkersEl.style.position = 'relative';
-      monthMarkersEl.style.height = '14px';
-
-      MONTHS.forEach((month, idx) => {
-        const marker = document.createElement('div');
-        marker.className = 'month-marker';
-
-        // Calculate position based on week
-        // 84px = 80px year-label + 4px gap
-        const weekNum = MONTH_WEEK_STARTS[idx];
-        const cellWidth = 10; // var(--cell-size)
-        const gap = 4; // var(--cell-gap)
-        const yearLabelOffset = 84;
-        const position = yearLabelOffset + (weekNum - 1) * (cellWidth + gap);
-
-        marker.style.position = 'absolute';
-        marker.style.left = `${position}px`;
-        marker.textContent = month;
-        monthMarkersEl.appendChild(marker);
-      });
-
-      // Create year rows
-      for (let year = CONFIG.startYear; year < endYear; year++) {
-        const row = document.createElement('div');
-        row.className = 'year-row';
-
-        const age = year - CONFIG.startYear;
-        const yearLabel = document.createElement('div');
-        yearLabel.className = 'year-label';
-        if (age % 10 === 0) {
-          yearLabel.classList.add('decade');
-        }
-        if (age === 80) {
-          yearLabel.classList.add('milestone');
-        }
-        yearLabel.textContent = `${year} (${age})`;
-        row.appendChild(yearLabel);
-
-        const weeksContainer = document.createElement('div');
-        weeksContainer.className = 'weeks-container';
-
-        for (let weekNum = 1; weekNum <= WEEKS_PER_YEAR; weekNum++) {
-          const week = document.createElement('div');
-          week.className = 'week';
-
-          const weekStart = getWeekStart(year, weekNum);
-          const weekEnd = getWeekEnd(year, weekNum);
-          const weekStartStr = dateToString(weekStart);
-          const weekEndStr = dateToString(weekEnd);
-
-          totalWeeks++;
-
-          // Determine week state
-          const isCurrent = year === currentYear && weekNum === currentWeek;
-          const isBeforeBirth = weekEndStr < birthStr;
-          const isFuture = weekStartStr > dateToString(today);
-
-          if (isBeforeBirth) {
-            week.classList.add('before-birth');
-          } else if (isCurrent) {
-            week.classList.add('current');
-            weeksLived++;
-          } else if (isFuture) {
-            week.classList.add('future');
-          } else {
-            week.classList.add('lived');
-            weeksLived++;
-          }
-
-          // Check for events
-          const events = getEventsForWeek(weekStart, weekEnd);
-          if (events.length > 0) {
-            week.classList.add('has-event');
-            // Use the highest priority event's color
-            const primaryEvent = events.sort((a, b) => {
-              const priority = { personal: 0, education: 1, career: 2, historical: 3 };
-              return (priority[a.category] || 99) - (priority[b.category] || 99);
-            })[0];
-            week.style.background = primaryEvent.color;
-            week.style.opacity = '1';
-          }
-
-          // Store data for tooltip
-          week.dataset.year = year;
-          week.dataset.week = weekNum;
-          week.dataset.start = weekStartStr;
-          week.dataset.end = weekEndStr;
-          week.dataset.events = JSON.stringify(events.map(e => ({ id: e.id, name: e.name, color: e.color })));
-
-          weeksContainer.appendChild(week);
-        }
-
-        row.appendChild(weeksContainer);
-        calendar.appendChild(row);
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Life Calendar</title>
+    <style>
+      :root {
+        --bg-dark: #0d1117;
+        --bg-card: #161b22;
+        --bg-cell: #21262d;
+        --text-primary: #e6edf3;
+        --text-secondary: #8b949e;
+        --text-muted: #6e7681;
+        --border: #30363d;
+        --lived: #e6edf3;
+        --lived-dim: #8b949e;
+        --future: #21262d;
+        --before-birth: transparent;
+        --cell-width: 10px;
+        --cell-height: 10px;
+        --cell-gap: 3px;
       }
 
-      // Update stats
-      const stats = document.getElementById('stats');
-      const percentLived = ((weeksLived / totalWeeks) * 100).toFixed(1);
-      const yearsLived = (weeksLived / 52).toFixed(1);
-      const weeksRemaining = totalWeeks - weeksLived;
-      const yearsRemaining = (weeksRemaining / 52).toFixed(1);
-      const christmasesRemaining = endYear - today.getFullYear() - (today.getMonth() === 11 && today.getDate() > 25 ? 1 : 0);
-      const newYearsRemaining = endYear - today.getFullYear() - 1;
-      const summersRemaining = endYear - today.getFullYear() - (today.getMonth() > 8 ? 1 : 0);
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-      stats.innerHTML = `
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+          sans-serif;
+        background: var(--bg-dark);
+        color: var(--text-primary);
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+        padding: 1.5rem 2rem 0 2rem;
+      }
+
+      .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 2rem;
+        padding-bottom: 1rem;
+        flex-shrink: 0;
+      }
+
+      .left-section {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        flex-shrink: 0;
+      }
+
+      .right-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: stretch;
+        flex: 1;
+        min-width: 0;
+      }
+
+      header {
+        text-align: left;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        margin-bottom: 0.25rem;
+      }
+
+      .subtitle {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+      }
+
+      .stats {
+        display: flex;
+        gap: 1.5rem;
+      }
+
+      .stat {
+        text-align: left;
+      }
+
+      .stat-value {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .stat-label {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .calendar-wrapper {
+        flex: 1;
+        overflow: auto;
+      }
+
+      .calendar-inner {
+        width: fit-content;
+        margin: 0 auto;
+      }
+
+      .calendar {
+        padding-bottom: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: var(--cell-gap);
+      }
+
+      .week-header {
+        display: flex;
+        gap: var(--cell-gap);
+        margin-bottom: 4px;
+        padding-left: 56px;
+      }
+
+      .week-number {
+        width: var(--cell-width);
+        font-size: 8px;
+        color: var(--text-muted);
+        text-align: center;
+      }
+
+      .month-markers {
+        position: sticky;
+        top: 0;
+        background: var(--bg-dark);
+        z-index: 100;
+        padding-bottom: 8px;
+      }
+
+      .month-marker {
+        font-size: 9px;
+        color: var(--text-secondary);
+        text-align: left;
+        position: relative;
+      }
+
+      .year-row {
+        display: flex;
+        gap: var(--cell-gap);
+        align-items: center;
+      }
+
+      .year-label {
+        width: 52px;
+        min-width: 52px;
+        font-size: 10px;
+        color: var(--text-muted);
+        text-align: right;
+        padding-right: 8px;
+        white-space: nowrap;
+      }
+
+      .year-label.decade {
+        color: var(--text-secondary);
+        font-weight: 600;
+      }
+
+      .year-label.milestone {
+        color: #ffd700;
+        font-weight: 700;
+      }
+
+      .weeks-container {
+        display: flex;
+        gap: var(--cell-gap);
+      }
+
+      .week {
+        width: var(--cell-width);
+        height: var(--cell-height);
+        border-radius: 2px;
+        background: var(--bg-cell);
+        position: relative;
+        cursor: default;
+        flex-shrink: 0;
+        transition:
+          transform 0.1s ease,
+          box-shadow 0.1s ease;
+      }
+
+      .week.before-birth {
+        background: var(--before-birth);
+        border: 1px dashed var(--border);
+        opacity: 0.3;
+      }
+
+      .week.lived {
+        background: var(--lived-dim);
+      }
+
+      .week.current {
+        background: var(--lived);
+        box-shadow: 0 0 6px var(--lived);
+      }
+
+      .week.future {
+        background: #3d444d;
+        opacity: 0.7;
+      }
+
+      .week.has-event {
+        cursor: pointer;
+      }
+
+      .week.has-event:hover,
+      .week.lived:hover,
+      .week.current:hover {
+        transform: scale(1.8);
+        z-index: 100;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+      }
+
+      .tooltip {
+        position: fixed;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px 14px;
+        font-size: 12px;
+        color: var(--text-primary);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        z-index: 1000;
+        pointer-events: none;
+        max-width: 320px;
+      }
+
+      .tooltip-header {
+        font-weight: 600;
+        margin-bottom: 6px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 6px;
+      }
+
+      .tooltip-dates {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+      }
+
+      .tooltip-events {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .tooltip-event {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .tooltip-event-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+
+      .tooltip-event-name {
+        color: var(--text-secondary);
+      }
+
+      .legend {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+
+      .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+      }
+
+      .legend-dot.born {
+        background: #ffd700;
+      }
+      .legend-dot.lived {
+        background: var(--lived-dim);
+      }
+      .legend-dot.current {
+        background: var(--lived);
+        box-shadow: 0 0 4px var(--lived);
+      }
+      .legend-dot.future {
+        background: #3d444d;
+        opacity: 0.7;
+      }
+
+      /* Category legend */
+      .category-legend {
+        flex: 1;
+      }
+
+      .category-legend h3 {
+        display: none;
+      }
+
+      .category-filters {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .category-filter {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        color: var(--text-secondary);
+        background: var(--bg-cell);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        user-select: none;
+      }
+
+      .category-filter:hover {
+        border-color: var(--text-muted);
+      }
+
+      .category-filter.active {
+        background: var(--bg-card);
+        border-color: var(--text-secondary);
+        color: var(--text-primary);
+      }
+
+      .category-filter .filter-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
+
+      .event-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
+        justify-content: flex-start;
+        align-items: center;
+      }
+
+      .event-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+
+      .event-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+
+      .event-item {
+        cursor: pointer;
+        padding: 2px 4px;
+        border-radius: 3px;
+        transition: background 0.15s ease;
+        font-size: 10px;
+      }
+
+      .event-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .week.legend-highlight {
+        box-shadow: 0 0 4px 2px rgba(255, 255, 255, 0.8);
+        z-index: 50;
+      }
+
+      .week.legend-dim {
+        opacity: 0.15 !important;
+      }
+
+      /* Mobile Responsive Styles */
+      @media (max-width: 768px) {
+        .container {
+          padding: 1rem;
+        }
+
+        .top-bar {
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .left-section {
+          width: 100%;
+        }
+
+        .right-section {
+          width: 100%;
+        }
+
+        h1 {
+          font-size: 1.25rem;
+        }
+
+        .subtitle {
+          font-size: 0.7rem;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0.75rem;
+        }
+
+        .stat-value {
+          font-size: 1rem;
+        }
+
+        .stat-label {
+          font-size: 0.55rem;
+        }
+
+        .legend {
+          gap: 0.75rem;
+        }
+
+        .legend-item {
+          font-size: 10px;
+        }
+
+        .category-legend {
+          display: none;
+        }
+
+        .calendar-wrapper {
+          -webkit-overflow-scrolling: touch;
+          overflow-x: auto;
+          overflow-y: auto;
+        }
+
+        /* Smaller cells on mobile */
+        :root {
+          --cell-width: 6px;
+          --cell-height: 10px;
+          --cell-gap: 2px;
+        }
+
+        .year-label {
+          width: 44px;
+          min-width: 44px;
+          font-size: 9px;
+          padding-right: 6px;
+        }
+
+        .month-marker {
+          font-size: 8px;
+        }
+
+        .legend-dot {
+          width: 6px;
+          height: 10px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .container {
+          padding: 0.75rem;
+        }
+
+        h1 {
+          font-size: 1.1rem;
+        }
+
+        .stats {
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.5rem;
+        }
+
+        /* Hide less critical stats on very small screens */
+        .stat:nth-child(n + 7) {
+          display: none;
+        }
+
+        .stat-value {
+          font-size: 0.9rem;
+        }
+
+        .stat-label {
+          font-size: 0.5rem;
+        }
+
+        :root {
+          --cell-width: 5px;
+          --cell-height: 8px;
+          --cell-gap: 1px;
+        }
+
+        .year-label {
+          width: 36px;
+          min-width: 36px;
+          font-size: 8px;
+          padding-right: 4px;
+        }
+
+        .month-marker {
+          font-size: 7px;
+        }
+
+        .legend-item {
+          font-size: 9px;
+        }
+
+        .legend-dot {
+          width: 5px;
+          height: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="top-bar">
+        <div class="left-section">
+          <header>
+            <h1>Life Calendar</h1>
+            <p class="subtitle">Each row is a year. Each box is a week.</p>
+          </header>
+          <div class="stats" id="stats"></div>
+        </div>
+
+        <div class="right-section">
+          <div class="category-legend" id="event-legend"></div>
+        </div>
+      </div>
+
+      <div class="calendar-wrapper">
+        <div class="calendar-inner">
+          <div class="month-markers" id="month-markers"></div>
+          <div class="calendar" id="calendar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tooltip" id="tooltip" style="display: none"></div>
+
+    <script>
+      // Configuration
+      const CONFIG = {
+        birthDate: new Date("1975-12-12"),
+        lifespan: 80,
+        startYear: 1975,
+      };
+
+      const WEEKS_PER_YEAR = 52;
+
+      // Embedded events data
+      const EVENTS = [
+        {
+          id: "birth",
+          name: "Born",
+          start: "1975-12-12",
+          end: "1975-12-12",
+          category: "personal",
+          color: "#FFD700",
+        },
+        {
+          id: "met-hilary",
+          name: "Met Hilary",
+          start: "2025-07-25",
+          end: "2025-07-25",
+          category: "personal",
+          color: "#FF69B4",
+        },
+        {
+          id: "high-school",
+          name: "High School",
+          start: "1990-01-01",
+          end: "1994-05-31",
+          category: "education",
+          color: "#4A90D9",
+        },
+        {
+          id: "college",
+          name: "College",
+          start: "1994-09-01",
+          end: "1998-05-31",
+          category: "education",
+          color: "#6B5B95",
+        },
+        {
+          id: "starwood",
+          name: "Starwood Capital",
+          start: "1998-08-01",
+          end: "2000-02-28",
+          category: "career",
+          color: "#1E3A5F",
+        },
+        {
+          id: "gsc",
+          name: "GSC Partners",
+          start: "2000-04-01",
+          end: "2002-07-31",
+          category: "career",
+          color: "#4A7C9B",
+        },
+        {
+          id: "gerber",
+          name: "Gerber Capital",
+          start: "2003-01-01",
+          end: "2003-12-31",
+          category: "career",
+          color: "#6B8E6B",
+        },
+        {
+          id: "elliott",
+          name: "Elliott Management",
+          start: "2005-01-01",
+          end: "2012-02-29",
+          category: "career",
+          color: "#E67E22",
+        },
+        {
+          id: "docnav",
+          name: "DocNav Labs",
+          start: "2014-04-01",
+          end: "2016-07-31",
+          category: "career",
+          color: "#8B5CF6",
+        },
+        {
+          id: "albert",
+          name: "Albert",
+          start: "2016-08-01",
+          end: "2025-12-20",
+          category: "career",
+          color: "#0070F3",
+        },
+        {
+          id: "berlin-wall",
+          name: "Fall of Berlin Wall",
+          start: "1989-11-09",
+          end: "1989-11-09",
+          category: "historical",
+          color: "#808080",
+        },
+        {
+          id: "gulf-war-1",
+          name: "Gulf War I",
+          start: "1990-08-02",
+          end: "1991-02-28",
+          category: "historical",
+          color: "#8B4513",
+        },
+        {
+          id: "soviet-collapse",
+          name: "Soviet Union Dissolution",
+          start: "1991-12-26",
+          end: "1991-12-26",
+          category: "historical",
+          color: "#808080",
+        },
+        {
+          id: "dotcom-boom",
+          name: "Dot-com Boom",
+          start: "1995-01-01",
+          end: "2000-03-10",
+          category: "historical",
+          color: "#28A745",
+        },
+        {
+          id: "dotcom-crash",
+          name: "Dot-com Crash",
+          start: "2000-03-11",
+          end: "2002-10-09",
+          category: "historical",
+          color: "#DC3545",
+        },
+        {
+          id: "sept-11",
+          name: "September 11 Attacks",
+          start: "2001-09-11",
+          end: "2001-09-11",
+          category: "historical",
+          color: "#000000",
+        },
+        {
+          id: "afghanistan-war",
+          name: "War in Afghanistan",
+          start: "2001-10-07",
+          end: "2021-08-30",
+          category: "historical",
+          color: "#8B4513",
+        },
+        {
+          id: "iraq-war",
+          name: "Iraq War",
+          start: "2003-03-20",
+          end: "2011-12-18",
+          category: "historical",
+          color: "#8B4513",
+        },
+        {
+          id: "iphone",
+          name: "iPhone Released",
+          start: "2007-06-29",
+          end: "2007-06-29",
+          category: "historical",
+          color: "#A2AAAD",
+        },
+        {
+          id: "financial-crisis",
+          name: "Great Financial Crisis",
+          start: "2007-12-01",
+          end: "2009-06-30",
+          category: "historical",
+          color: "#DC3545",
+        },
+        {
+          id: "obama",
+          name: "Obama Presidency",
+          start: "2009-01-20",
+          end: "2017-01-20",
+          category: "historical",
+          color: "#0052A5",
+        },
+        {
+          id: "covid",
+          name: "COVID-19 Pandemic",
+          start: "2020-03-11",
+          end: "2023-05-05",
+          category: "historical",
+          color: "#FF6B6B",
+        },
+        {
+          id: "chatgpt",
+          name: "ChatGPT Released",
+          start: "2022-11-30",
+          end: "2022-11-30",
+          category: "historical",
+          color: "#10A37F",
+        },
+      ];
+
+      // Date utilities
+      function getWeekNumber(date) {
+        const d = new Date(
+          Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+        );
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+      }
+
+      function getWeekStart(year, weekNum) {
+        // ISO week date: Week 1 is the week with the first Thursday
+        const jan4 = new Date(year, 0, 4);
+        const dayOfWeek = jan4.getDay() || 7; // Monday = 1, Sunday = 7
+        const monday = new Date(jan4);
+        monday.setDate(jan4.getDate() - dayOfWeek + 1); // First Monday
+        monday.setDate(monday.getDate() + (weekNum - 1) * 7);
+        return monday;
+      }
+
+      function getWeekEnd(year, weekNum) {
+        const start = getWeekStart(year, weekNum);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        return end;
+      }
+
+      function formatDate(date) {
+        return date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+
+      function formatDateShort(date) {
+        return date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+      }
+
+      function dateToString(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+
+      function stringToDate(str) {
+        return new Date(str + "T12:00:00");
+      }
+
+      // Check if a week contains any events
+      function getEventsForWeek(weekStart, weekEnd) {
+        const startStr = dateToString(weekStart);
+        const endStr = dateToString(weekEnd);
+
+        return EVENTS.filter((event) => {
+          // Event overlaps with week if event.start <= weekEnd AND event.end >= weekStart
+          return event.start <= endStr && event.end >= startStr;
+        });
+      }
+
+      // Month start weeks (approximate)
+      const MONTHS = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+
+      // Approximate week numbers where each month starts
+      const MONTH_WEEK_STARTS = [1, 5, 9, 14, 18, 22, 27, 31, 35, 40, 44, 48];
+
+      // Render the calendar
+      function renderCalendar() {
+        const calendar = document.getElementById("calendar");
+        const today = new Date();
+        today.setHours(12, 0, 0, 0);
+        const currentWeek = getWeekNumber(today);
+        const currentYear = today.getFullYear();
+        const birthStr = dateToString(CONFIG.birthDate);
+        const endYear = CONFIG.startYear + CONFIG.lifespan;
+
+        let weeksLived = 0;
+        let totalWeeks = 0;
+
+        // Create month markers header (in separate fixed element)
+        const monthMarkersEl = document.getElementById("month-markers");
+        monthMarkersEl.innerHTML = "";
+        monthMarkersEl.style.position = "relative";
+        monthMarkersEl.style.height = "14px";
+
+        MONTHS.forEach((month, idx) => {
+          const marker = document.createElement("div");
+          marker.className = "month-marker";
+
+          // Calculate position based on week
+          // 56px = 52px year-label + 4px gap
+          const weekNum = MONTH_WEEK_STARTS[idx];
+          const cellWidth = 10; // var(--cell-width)
+          const gap = 3; // var(--cell-gap)
+          const yearLabelOffset = 56;
+          const position = yearLabelOffset + (weekNum - 1) * (cellWidth + gap);
+
+          marker.style.position = "absolute";
+          marker.style.left = `${position}px`;
+          marker.textContent = month;
+          monthMarkersEl.appendChild(marker);
+        });
+
+        // Create year rows
+        for (let year = CONFIG.startYear; year < endYear; year++) {
+          const row = document.createElement("div");
+          row.className = "year-row";
+
+          const age = year - CONFIG.startYear;
+          const yearLabel = document.createElement("div");
+          yearLabel.className = "year-label";
+          if (age % 10 === 0) {
+            yearLabel.classList.add("decade");
+          }
+          if (age === 80) {
+            yearLabel.classList.add("milestone");
+          }
+          yearLabel.textContent = `'${String(year).slice(-2)} (${age})`;
+          row.appendChild(yearLabel);
+
+          const weeksContainer = document.createElement("div");
+          weeksContainer.className = "weeks-container";
+
+          for (let weekNum = 1; weekNum <= WEEKS_PER_YEAR; weekNum++) {
+            const week = document.createElement("div");
+            week.className = "week";
+
+            const weekStart = getWeekStart(year, weekNum);
+            const weekEnd = getWeekEnd(year, weekNum);
+            const weekStartStr = dateToString(weekStart);
+            const weekEndStr = dateToString(weekEnd);
+
+            totalWeeks++;
+
+            // Determine week state
+            const isCurrent = year === currentYear && weekNum === currentWeek;
+            const isBeforeBirth = weekEndStr < birthStr;
+            const isFuture = weekStartStr > dateToString(today);
+
+            if (isBeforeBirth) {
+              week.classList.add("before-birth");
+            } else if (isCurrent) {
+              week.classList.add("current");
+              weeksLived++;
+            } else if (isFuture) {
+              week.classList.add("future");
+            } else {
+              week.classList.add("lived");
+              weeksLived++;
+            }
+
+            // Check for events
+            const events = getEventsForWeek(weekStart, weekEnd);
+            if (events.length > 0) {
+              week.classList.add("has-event");
+              // Use the highest priority event's color
+              const primaryEvent = events.sort((a, b) => {
+                const priority = {
+                  personal: 0,
+                  education: 1,
+                  career: 2,
+                  historical: 3,
+                };
+                return (
+                  (priority[a.category] || 99) - (priority[b.category] || 99)
+                );
+              })[0];
+              week.style.background = primaryEvent.color;
+              week.style.opacity = "1";
+            }
+
+            // Store data for tooltip
+            week.dataset.year = year;
+            week.dataset.week = weekNum;
+            week.dataset.start = weekStartStr;
+            week.dataset.end = weekEndStr;
+            week.dataset.events = JSON.stringify(
+              events.map((e) => ({ id: e.id, name: e.name, color: e.color })),
+            );
+
+            weeksContainer.appendChild(week);
+          }
+
+          row.appendChild(weeksContainer);
+          calendar.appendChild(row);
+        }
+
+        // Update stats
+        const stats = document.getElementById("stats");
+        const percentLived = ((weeksLived / totalWeeks) * 100).toFixed(1);
+        const yearsLived = (weeksLived / 52).toFixed(1);
+        const weeksRemaining = totalWeeks - weeksLived;
+        const yearsRemaining = (weeksRemaining / 52).toFixed(1);
+        const christmasesRemaining =
+          endYear -
+          today.getFullYear() -
+          (today.getMonth() === 11 && today.getDate() > 25 ? 1 : 0);
+        const newYearsRemaining = endYear - today.getFullYear() - 1;
+        const summersRemaining =
+          endYear - today.getFullYear() - (today.getMonth() > 8 ? 1 : 0);
+
+        stats.innerHTML = `
         <div class="stat">
           <div class="stat-value">${weeksLived.toLocaleString()}</div>
           <div class="stat-label">Weeks Lived</div>
@@ -657,158 +1018,233 @@
           <div class="stat-label">Christmases</div>
         </div>
         <div class="stat">
-          <div class="stat-value">${newYearsRemaining}</div>
-          <div class="stat-label">New Years</div>
-        </div>
-        <div class="stat">
           <div class="stat-value">${summersRemaining}</div>
           <div class="stat-label">Summers</div>
         </div>
       `;
 
-      // Render event legend
-      renderEventLegend();
-    }
+        // Render event legend
+        renderEventLegend();
+      }
 
-    function renderEventLegend() {
-      const legend = document.getElementById('event-legend');
+      // Category filter state
+      const CATEGORY_FILTERS = {
+        personal: { label: "Personal", color: "#FF69B4", active: true },
+        education: {
+          label: "Personal",
+          color: "#6B5B95",
+          active: true,
+          mergeWith: "personal",
+        },
+        career: { label: "Work", color: "#E67E22", active: true },
+        historical: { label: "World", color: "#808080", active: true },
+      };
 
-      // Group events by category
-      const categories = {};
-      EVENTS.forEach(event => {
-        if (!categories[event.category]) {
-          categories[event.category] = [];
+      function getVisibleCategories() {
+        const visible = new Set();
+        if (CATEGORY_FILTERS.personal.active) {
+          visible.add("personal");
+          visible.add("education");
         }
-        categories[event.category].push(event);
-      });
+        if (CATEGORY_FILTERS.career.active) visible.add("career");
+        if (CATEGORY_FILTERS.historical.active) visible.add("historical");
+        return visible;
+      }
 
-      let html = '<h3>Events</h3><div class="event-list">';
+      function renderEventLegend() {
+        const legend = document.getElementById("event-legend");
+        const visibleCategories = getVisibleCategories();
 
-      const categoryOrder = ['personal', 'education', 'career', 'historical'];
-      categoryOrder.forEach(category => {
-        const events = categories[category];
-        if (events) {
-          events.forEach(event => {
-            html += `
-              <div class="event-item" data-event-id="${event.id}">
-                <div class="event-dot" style="background: ${event.color}"></div>
-                <span>${event.name}</span>
-              </div>
-            `;
+        // Sort events: single-date events first, then ranges, both by start date
+        const sortedEvents = [...EVENTS].sort((a, b) => {
+          const aIsSingleDay = a.start === a.end;
+          const bIsSingleDay = b.start === b.end;
+          if (aIsSingleDay && !bIsSingleDay) return -1;
+          if (!aIsSingleDay && bIsSingleDay) return 1;
+          return a.start.localeCompare(b.start);
+        });
+
+        let html = `
+        <div class="category-filters">
+          <div class="category-filter ${CATEGORY_FILTERS.personal.active ? "active" : ""}" data-category="personal">
+            <div class="filter-dot" style="background: #FF69B4"></div>
+            <span>Personal</span>
+          </div>
+          <div class="category-filter ${CATEGORY_FILTERS.career.active ? "active" : ""}" data-category="career">
+            <div class="filter-dot" style="background: #E67E22"></div>
+            <span>Work</span>
+          </div>
+          <div class="category-filter ${CATEGORY_FILTERS.historical.active ? "active" : ""}" data-category="historical">
+            <div class="filter-dot" style="background: #808080"></div>
+            <span>World</span>
+          </div>
+        </div>
+        <div class="event-list">
+      `;
+
+        sortedEvents.forEach((event) => {
+          if (!visibleCategories.has(event.category)) return;
+          html += `
+          <div class="event-item" data-event-id="${event.id}">
+            <div class="event-dot" style="background: ${event.color}"></div>
+            <span>${event.name}</span>
+          </div>
+        `;
+        });
+
+        html += "</div>";
+        legend.innerHTML = html;
+
+        // Add filter click handlers
+        legend.querySelectorAll(".category-filter").forEach((filter) => {
+          filter.addEventListener("click", () => {
+            const category = filter.dataset.category;
+            CATEGORY_FILTERS[category].active =
+              !CATEGORY_FILTERS[category].active;
+            updateCalendarVisibility();
+            renderEventLegend();
           });
-        }
-      });
+        });
 
-      html += '</div>';
-      legend.innerHTML = html;
+        // Add legend hover interactivity
+        initLegendHover();
+      }
 
-      // Add legend hover interactivity
-      initLegendHover();
-    }
+      function updateCalendarVisibility() {
+        const visibleCategories = getVisibleCategories();
+        const allWeeks = document.querySelectorAll(".week.has-event");
 
-    function initLegendHover() {
-      const legend = document.getElementById('event-legend');
-      const allWeeks = document.querySelectorAll('.week');
+        allWeeks.forEach((week) => {
+          const events = JSON.parse(week.dataset.events || "[]");
+          const hasVisibleEvent = events.some((ev) => {
+            const fullEvent = EVENTS.find((e) => e.id === ev.id);
+            return fullEvent && visibleCategories.has(fullEvent.category);
+          });
 
-      legend.addEventListener('mouseover', (e) => {
-        const item = e.target.closest('.event-item');
-        if (!item) return;
-
-        const eventId = item.dataset.eventId;
-
-        allWeeks.forEach(week => {
-          const events = JSON.parse(week.dataset.events || '[]');
-          const hasEvent = events.some(ev => ev.id === eventId);
-
-          if (hasEvent) {
-            week.classList.add('legend-highlight');
-            week.classList.remove('legend-dim');
+          if (hasVisibleEvent) {
+            // Show the color of the first visible event
+            const visibleEvent = events.find((ev) => {
+              const fullEvent = EVENTS.find((e) => e.id === ev.id);
+              return fullEvent && visibleCategories.has(fullEvent.category);
+            });
+            week.style.background = visibleEvent.color;
+            week.style.opacity = "1";
           } else {
-            week.classList.add('legend-dim');
-            week.classList.remove('legend-highlight');
+            // Reset to default state
+            if (
+              week.classList.contains("lived") ||
+              week.classList.contains("current")
+            ) {
+              week.style.background = "";
+              week.style.opacity = "";
+            }
           }
         });
-      });
+      }
 
-      legend.addEventListener('mouseout', (e) => {
-        const item = e.target.closest('.event-item');
-        if (!item) return;
+      function initLegendHover() {
+        const legend = document.getElementById("event-legend");
+        const allWeeks = document.querySelectorAll(".week");
 
-        allWeeks.forEach(week => {
-          week.classList.remove('legend-highlight', 'legend-dim');
+        legend.addEventListener("mouseover", (e) => {
+          const item = e.target.closest(".event-item");
+          if (!item) return;
+
+          const eventId = item.dataset.eventId;
+
+          allWeeks.forEach((week) => {
+            const events = JSON.parse(week.dataset.events || "[]");
+            const hasEvent = events.some((ev) => ev.id === eventId);
+
+            if (hasEvent) {
+              week.classList.add("legend-highlight");
+              week.classList.remove("legend-dim");
+            } else {
+              week.classList.add("legend-dim");
+              week.classList.remove("legend-highlight");
+            }
+          });
         });
-      });
-    }
 
-    // Tooltip handling
-    function initTooltip() {
-      const tooltip = document.getElementById('tooltip');
-      const calendar = document.getElementById('calendar');
+        legend.addEventListener("mouseout", (e) => {
+          const item = e.target.closest(".event-item");
+          if (!item) return;
 
-      calendar.addEventListener('mouseover', (e) => {
-        const week = e.target.closest('.week');
-        if (!week) return;
+          allWeeks.forEach((week) => {
+            week.classList.remove("legend-highlight", "legend-dim");
+          });
+        });
+      }
 
-        const year = parseInt(week.dataset.year);
-        const weekNum = parseInt(week.dataset.week);
-        const age = year - CONFIG.startYear;
-        const start = stringToDate(week.dataset.start);
-        const end = stringToDate(week.dataset.end);
-        const events = JSON.parse(week.dataset.events);
+      // Tooltip handling
+      function initTooltip() {
+        const tooltip = document.getElementById("tooltip");
+        const calendar = document.getElementById("calendar");
 
-        let html = `<div class="tooltip-header">Age ${age}, Week ${weekNum}</div>`;
-        html += `<div class="tooltip-dates">${formatDateShort(start)} – ${formatDate(end)}</div>`;
+        calendar.addEventListener("mouseover", (e) => {
+          const week = e.target.closest(".week");
+          if (!week) return;
 
-        if (events.length > 0) {
-          html += '<div class="tooltip-events">';
-          events.forEach(event => {
-            html += `
+          const year = parseInt(week.dataset.year);
+          const weekNum = parseInt(week.dataset.week);
+          const age = year - CONFIG.startYear;
+          const start = stringToDate(week.dataset.start);
+          const end = stringToDate(week.dataset.end);
+          const events = JSON.parse(week.dataset.events);
+
+          let html = `<div class="tooltip-header">Age ${age}, Week ${weekNum}</div>`;
+          html += `<div class="tooltip-dates">${formatDateShort(start)} – ${formatDate(end)}</div>`;
+
+          if (events.length > 0) {
+            html += '<div class="tooltip-events">';
+            events.forEach((event) => {
+              html += `
               <div class="tooltip-event">
                 <div class="tooltip-event-dot" style="background: ${event.color}"></div>
                 <span class="tooltip-event-name">${event.name}</span>
               </div>
             `;
-          });
-          html += '</div>';
-        }
+            });
+            html += "</div>";
+          }
 
-        tooltip.innerHTML = html;
-        tooltip.style.display = 'block';
-      });
+          tooltip.innerHTML = html;
+          tooltip.style.display = "block";
+        });
 
-      calendar.addEventListener('mousemove', (e) => {
-        const week = e.target.closest('.week');
-        if (!week) {
-          tooltip.style.display = 'none';
-          return;
-        }
+        calendar.addEventListener("mousemove", (e) => {
+          const week = e.target.closest(".week");
+          if (!week) {
+            tooltip.style.display = "none";
+            return;
+          }
 
-        const x = e.clientX + 15;
-        const y = e.clientY + 15;
+          const x = e.clientX + 15;
+          const y = e.clientY + 15;
 
-        // Keep tooltip in viewport
-        const rect = tooltip.getBoundingClientRect();
-        const maxX = window.innerWidth - rect.width - 20;
-        const maxY = window.innerHeight - rect.height - 20;
+          // Keep tooltip in viewport
+          const rect = tooltip.getBoundingClientRect();
+          const maxX = window.innerWidth - rect.width - 20;
+          const maxY = window.innerHeight - rect.height - 20;
 
-        tooltip.style.left = `${Math.min(x, maxX)}px`;
-        tooltip.style.top = `${Math.min(y, maxY)}px`;
-      });
+          tooltip.style.left = `${Math.min(x, maxX)}px`;
+          tooltip.style.top = `${Math.min(y, maxY)}px`;
+        });
 
-      calendar.addEventListener('mouseout', (e) => {
-        if (!e.target.closest('.week')) {
-          tooltip.style.display = 'none';
-        }
-      });
-    }
+        calendar.addEventListener("mouseout", (e) => {
+          if (!e.target.closest(".week")) {
+            tooltip.style.display = "none";
+          }
+        });
+      }
 
-    // Initialize
-    function init() {
-      renderCalendar();
-      initTooltip();
-    }
+      // Initialize
+      function init() {
+        renderCalendar();
+        initTooltip();
+      }
 
-    init();
-  </script>
-</body>
+      init();
+    </script>
+  </body>
 </html>
