@@ -463,7 +463,25 @@
         }
 
         .category-legend {
+          display: block;
+        }
+
+        .category-filters {
+          justify-content: flex-start;
+          gap: 0.4rem;
+        }
+
+        .category-filter {
+          padding: 3px 8px;
+          font-size: 10px;
+        }
+
+        .event-list {
           display: none;
+        }
+
+        .month-markers {
+          position: relative;
         }
 
         .calendar-wrapper {
@@ -878,17 +896,21 @@
         monthMarkersEl.style.position = "relative";
         monthMarkersEl.style.height = "14px";
 
+        // Get computed CSS variable values
+        const styles = getComputedStyle(document.documentElement);
+        const cellWidth = parseInt(styles.getPropertyValue("--cell-width")) || 10;
+        const cellGap = parseInt(styles.getPropertyValue("--cell-gap")) || 3;
+
+        // Get year label width from first row if exists, else estimate
+        const yearLabelWidth = window.innerWidth <= 480 ? 36 : window.innerWidth <= 768 ? 44 : 52;
+        const yearLabelOffset = yearLabelWidth + 4;
+
         MONTHS.forEach((month, idx) => {
           const marker = document.createElement("div");
           marker.className = "month-marker";
 
-          // Calculate position based on week
-          // 56px = 52px year-label + 4px gap
           const weekNum = MONTH_WEEK_STARTS[idx];
-          const cellWidth = 10; // var(--cell-width)
-          const gap = 3; // var(--cell-gap)
-          const yearLabelOffset = 56;
-          const position = yearLabelOffset + (weekNum - 1) * (cellWidth + gap);
+          const position = yearLabelOffset + (weekNum - 1) * (cellWidth + cellGap);
 
           marker.style.position = "absolute";
           marker.style.left = `${position}px`;
