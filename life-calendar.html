@@ -1079,8 +1079,12 @@
         const legend = document.getElementById("event-legend");
         const visibleCategories = getVisibleCategories();
 
-        // Sort events: single-date events first, then ranges, both by start date
+        // Sort events: by category (personal, work, world), then single-date first, then by start date
+        const categoryOrder = { personal: 0, education: 0, career: 1, historical: 2 };
         const sortedEvents = [...EVENTS].sort((a, b) => {
+          const catA = categoryOrder[a.category] ?? 99;
+          const catB = categoryOrder[b.category] ?? 99;
+          if (catA !== catB) return catA - catB;
           const aIsSingleDay = a.start === a.end;
           const bIsSingleDay = b.start === b.end;
           if (aIsSingleDay && !bIsSingleDay) return -1;
