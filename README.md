@@ -10,6 +10,7 @@ Publicly available tools hosted on GitHub Pages.
 - <a href="https://rkpatel33.github.io/tools/face-tagger.html" target="_blank">Face Tagger</a> - Add names to faces in photos and share
 - <a href="https://rkpatel33.github.io/tools/document-scanner.html" target="_blank">Document Scanner</a> - Scan documents with edge detection, perspective correction, and Lanczos4 interpolation
 - <a href="https://rkpatel33.github.io/tools/document-scanner-jscanify.html" target="_blank">Document Scanner (jscanify)</a> - Alternative scanner using jscanify library
+- <a href="https://rkpatel33.github.io/tools/life-calendar.html" target="_blank">Life Calendar</a> - Visualize your life as weeks on a grid with personal, work, and world events
 
 ## Adding a new tool
 
