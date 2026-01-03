@@ -24,6 +24,21 @@ When committing changes to HTML tools, **always update README.md** with links to
 
 ---
 
+## Previewing HTML from Branches
+
+To preview HTML files before merging to master, use **raw.githack.com**:
+
+```
+https://raw.githack.com/rkpatel33/tools/{branch-name}/{file}.html
+```
+
+Example:
+```
+https://raw.githack.com/rkpatel33/tools/claude/my-feature-branch/tool-name.html
+```
+
+---
+
 ## CDN Libraries
 
 Plain JS libraries that can be loaded directly from CDN (no build step):
