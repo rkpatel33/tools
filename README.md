@@ -11,6 +11,7 @@ Publicly available tools hosted on GitHub Pages.
 - <a href="https://rkpatel33.github.io/tools/document-scanner.html" target="_blank">Document Scanner</a> - Scan documents with edge detection, perspective correction, and Lanczos4 interpolation
 - <a href="https://rkpatel33.github.io/tools/document-scanner-jscanify.html" target="_blank">Document Scanner (jscanify)</a> - Alternative scanner using jscanify library
 - <a href="https://rkpatel33.github.io/tools/life-calendar.html" target="_blank">Life Calendar</a> - Visualize your life as weeks on a grid with personal, work, and world events
+- <a href="https://rkpatel33.github.io/tools/connection-speed-tester.html" target="_blank">Connection Speed Tester</a> - Test connectivity by measuring HTTP response times (like gping for the browser)
 
 ## Adding a new tool
 

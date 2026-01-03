@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Speed Tester</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.iife.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #fafafa;
+            color: #171717;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .latency-display {
+            font-size: 48px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            min-width: 180px;
+        }
+
+        .latency-display.good { color: #46a758; }
+        .latency-display.medium { color: #f5a623; }
+        .latency-display.slow { color: #e5484d; }
+        .latency-display.offline { color: #a3a3a3; }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #666666;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #a3a3a3;
+        }
+
+        .status-dot.good { background: #46a758; }
+        .status-dot.medium { background: #f5a623; }
+        .status-dot.slow { background: #e5484d; }
+        .status-dot.offline { background: #e5484d; animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        button {
+            background: #171717;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            background: #333333;
+        }
+
+        button.stop {
+            background: #e5484d;
+        }
+
+        button.stop:hover {
+            background: #c93c40;
+        }
+
+        button svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .chart-container {
+            margin-top: 16px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666666;
+            margin-top: 4px;
+        }
+
+        .u-wrap {
+            margin: 0 auto;
+        }
+
+        @media (max-width: 600px) {
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .latency-display {
+                font-size: 36px;
+                min-width: 140px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Connection Speed Tester</h1>
+
+        <div class="panel">
+            <div class="status-row">
+                <div id="latency" class="latency-display offline">-- ms</div>
+                <div class="status-indicator">
+                    <div id="statusDot" class="status-dot"></div>
+                    <span id="statusText">Stopped</span>
+                </div>
+                <div style="flex: 1;"></div>
+                <button id="toggleBtn">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Start
+                </button>
+            </div>
+            <div id="chart" class="chart-container"></div>
+        </div>
+
+        <div class="panel stats">
+            <div class="stat">
+                <div id="minLatency" class="stat-value">--</div>
+                <div class="stat-label">Min (ms)</div>
+            </div>
+            <div class="stat">
+                <div id="maxLatency" class="stat-value">--</div>
+                <div class="stat-label">Max (ms)</div>
+            </div>
+            <div class="stat">
+                <div id="avgLatency" class="stat-value">--</div>
+                <div class="stat-label">Avg (ms)</div>
+            </div>
+            <div class="stat">
+                <div id="successRate" class="stat-value">--</div>
+                <div class="stat-label">Success %</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const PING_URL = 'https://www.google.com/favicon.ico';
+        const PING_INTERVAL = 1000;
+        const TIMEOUT = 5000;
+        const MAX_POINTS = 60;
+
+        let running = false;
+        let intervalId = null;
+        let uplot = null;
+        let timestamps = [];
+        let latencies = [];
+        let successCount = 0;
+        let totalCount = 0;
+
+        const toggleBtn = document.getElementById('toggleBtn');
+        const latencyEl = document.getElementById('latency');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const minEl = document.getElementById('minLatency');
+        const maxEl = document.getElementById('maxLatency');
+        const avgEl = document.getElementById('avgLatency');
+        const successEl = document.getElementById('successRate');
+        const chartEl = document.getElementById('chart');
+
+        function getLatencyClass(ms) {
+            if (ms === null) return 'offline';
+            if (ms < 200) return 'good';
+            if (ms < 500) return 'medium';
+            return 'slow';
+        }
+
+        function updateUI(latency) {
+            const cls = getLatencyClass(latency);
+
+            latencyEl.textContent = latency !== null ? `${Math.round(latency)} ms` : '-- ms';
+            latencyEl.className = `latency-display ${cls}`;
+
+            statusDot.className = `status-dot ${cls}`;
+            statusText.textContent = latency !== null ?
+                (cls === 'good' ? 'Connected' : cls === 'medium' ? 'Slow' : 'Very Slow') :
+                'Connection Lost';
+
+            // Update stats
+            const validLatencies = latencies.filter(l => l !== null);
+            if (validLatencies.length > 0) {
+                minEl.textContent = Math.round(Math.min(...validLatencies));
+                maxEl.textContent = Math.round(Math.max(...validLatencies));
+                avgEl.textContent = Math.round(validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length);
+            }
+            successEl.textContent = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : '--';
+        }
+
+        async function ping() {
+            const start = performance.now();
+            totalCount++;
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
+                await fetch(PING_URL + '?t=' + Date.now(), {
+                    mode: 'no-cors',
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                const latency = performance.now() - start;
+                successCount++;
+                return latency;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function initChart() {
+            const opts = {
+                width: chartEl.clientWidth,
+                height: 200,
+                series: [
+                    {},
+                    {
+                        stroke: '#0070f3',
+                        width: 2,
+                        fill: 'rgba(0, 112, 243, 0.1)',
+                        points: { show: false }
+                    }
+                ],
+                scales: {
+                    x: { time: false },
+                    y: { auto: true, range: [0, null] }
+                },
+                axes: [
+                    {
+                        show: true,
+                        stroke: '#e5e5e5',
+                        grid: { stroke: '#f7f7f7', width: 1 },
+                        ticks: { show: false },
+                        values: (u, vals) => vals.map(v => '')
+                    },
+                    {
+                        stroke: '#e5e5e5',
+                        grid: { stroke: '#f7f7f7', width: 1 },
+                        size: 50,
+                        values: (u, vals) => vals.map(v => v + ' ms')
+                    }
+                ],
+                cursor: {
+                    show: true,
+                    points: { show: true }
+                }
+            };
+
+            const now = Date.now() / 1000;
+            timestamps = Array(MAX_POINTS).fill(0).map((_, i) => now - (MAX_POINTS - i));
+            latencies = Array(MAX_POINTS).fill(null);
+
+            uplot = new uPlot(opts, [timestamps, latencies], chartEl);
+        }
+
+        function updateChart(latency) {
+            const now = Date.now() / 1000;
+
+            timestamps.push(now);
+            latencies.push(latency);
+
+            if (timestamps.length > MAX_POINTS) {
+                timestamps.shift();
+                latencies.shift();
+            }
+
+            uplot.setData([timestamps, latencies]);
+        }
+
+        async function runPing() {
+            const latency = await ping();
+            updateChart(latency);
+            updateUI(latency);
+        }
+
+        function start() {
+            if (running) return;
+            running = true;
+
+            toggleBtn.innerHTML = `
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                </svg>
+                Stop
+            `;
+            toggleBtn.classList.add('stop');
+
+            // Reset stats
+            timestamps = [];
+            latencies = [];
+            successCount = 0;
+            totalCount = 0;
+
+            if (uplot) {
+                uplot.destroy();
+            }
+            initChart();
+
+            runPing();
+            intervalId = setInterval(runPing, PING_INTERVAL);
+        }
+
+        function stop() {
+            if (!running) return;
+            running = false;
+
+            toggleBtn.innerHTML = `
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Start
+            `;
+            toggleBtn.classList.remove('stop');
+
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+
+            statusDot.className = 'status-dot';
+            statusText.textContent = 'Stopped';
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            if (running) {
+                stop();
+            } else {
+                start();
+            }
+        });
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            if (uplot) {
+                uplot.setSize({ width: chartEl.clientWidth, height: 200 });
+            }
+        });
+
+        // Initialize empty chart
+        initChart();
+    </script>
+</body>
+</html>
