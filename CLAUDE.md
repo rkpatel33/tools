@@ -24,6 +24,31 @@ When committing changes to HTML tools, **always update README.md** with links to
 
 ---
 
+## CDN Libraries
+
+Plain JS libraries that can be loaded directly from CDN (no build step):
+
+### Charts & Visualization
+- **uPlot** (~45KB) - Fast time series charts, ideal for streaming/real-time data
+  ```html
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.iife.min.js"></script>
+  ```
+  [Demos](https://leeoniya.github.io/uPlot/demos/index.html) | [GitHub](https://github.com/leeoniya/uPlot)
+
+- **Chart.js** (~200KB) - Simple, flexible charts with many chart types
+  ```html
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  ```
+  [Docs](https://www.chartjs.org/)
+
+- **ApexCharts** - Modern charts with annotations support
+  ```html
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  ```
+
+---
+
 ## Visual Style Guide
 
 Based on [Vercel Geist Design System](https://vercel.com/geist/introduction).
