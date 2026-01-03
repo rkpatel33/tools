@@ -26,15 +26,15 @@ When committing changes to HTML tools, **always update README.md** with links to
 
 ## Previewing HTML from Branches
 
-To preview HTML files before merging to master, use **raw.githack.com**:
+To preview HTML files before merging to master, use **htmlpreview.github.io**:
 
 ```
-https://raw.githack.com/rkpatel33/tools/{branch-name}/{file}.html
+https://htmlpreview.github.io/?https://github.com/rkpatel33/tools/blob/{branch-name}/{file}.html
 ```
 
 Example:
 ```
-https://raw.githack.com/rkpatel33/tools/claude/my-feature-branch/tool-name.html
+https://htmlpreview.github.io/?https://github.com/rkpatel33/tools/blob/claude/my-feature-branch/tool-name.html
 ```
 
 ---
