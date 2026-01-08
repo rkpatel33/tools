@@ -4,151 +4,228 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connection Speed Tester</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.min.css">
     <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.iife.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #f5f5f3;
+            --surface: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-tertiary: #999999;
+            --border: #e0e0de;
+            --accent-good: #2d8a4e;
+            --accent-warn: #c77800;
+            --accent-error: #c73a3a;
+            --font-mono: 'IBM Plex Mono', 'SF Mono', monospace;
+            --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #fafafa;
-            color: #171717;
-            padding: 20px;
+            font-family: var(--font-sans);
+            background: var(--bg);
+            color: var(--text-primary);
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
         }
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
+        .instrument {
+            background: var(--surface);
+            width: 100%;
+            max-width: 640px;
+            border: 1px solid var(--border);
         }
 
-        h1 {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 20px;
-        }
-
-        .panel {
-            background: #ffffff;
-            border: 1px solid #e5e5e5;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 16px;
-        }
-
-        .status-row {
+        /* Header */
+        .header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
-            margin-bottom: 20px;
         }
 
-        .status-group {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .latency-display {
-            font-size: 48px;
-            font-weight: 600;
-            font-variant-numeric: tabular-nums;
-            flex-shrink: 0;
-        }
-
-        .latency-display.good { color: #46a758; }
-        .latency-display.medium { color: #f5a623; }
-        .latency-display.slow { color: #e5484d; }
-        .latency-display.offline { color: #a3a3a3; }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: #666666;
-            flex-shrink: 0;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #a3a3a3;
-        }
-
-        .status-dot.good { background: #46a758; }
-        .status-dot.medium { background: #f5a623; }
-        .status-dot.slow { background: #e5484d; }
-        .status-dot.offline { background: #e5484d; animation: pulse 1s infinite; }
-        .status-dot.disconnected { background: #e5484d; animation: pulse 0.5s infinite; }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        .disconnected-banner {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            border-radius: 6px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            display: none;
-            align-items: center;
-            gap: 12px;
-            color: #dc2626;
-            font-size: 14px;
+        .title {
+            font-family: var(--font-mono);
+            font-size: 11px;
             font-weight: 500;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
         }
 
-        .disconnected-banner.show {
-            display: flex;
-        }
-
-        .disconnected-banner svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
-
-        button {
-            background: #171717;
-            color: #ffffff;
-            border: none;
-            width: 40px;
-            height: 40px;
-            padding: 0;
-            border-radius: 6px;
+        .control-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--text-primary);
+            background: transparent;
+            border-radius: 50%;
             cursor: pointer;
-            transition: background 0.15s ease;
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.15s ease;
+        }
+
+        .control-btn:hover {
+            background: var(--text-primary);
+        }
+
+        .control-btn:hover svg {
+            stroke: var(--surface);
+            fill: var(--surface);
+            color: var(--surface);
+        }
+
+        .control-btn.active {
+            background: var(--accent-error);
+            border-color: var(--accent-error);
+        }
+
+        .control-btn.active svg {
+            stroke: var(--surface);
+            fill: var(--surface);
+            color: var(--surface);
+        }
+
+        .control-btn.active:hover {
+            background: #a83232;
+            border-color: #a83232;
+        }
+
+        .control-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--text-primary);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        /* Primary Display */
+        .display-section {
+            padding: 32px 24px 24px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .latency-value {
+            font-family: var(--font-mono);
+            font-size: 72px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .latency-value.good { color: var(--accent-good); }
+        .latency-value.warn { color: var(--accent-warn); }
+        .latency-value.error { color: var(--accent-error); }
+        .latency-value.offline { color: var(--text-tertiary); }
+
+        .latency-unit {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            letter-spacing: 0.05em;
+        }
+
+        .status-line {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .status-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-tertiary);
+        }
+
+        .status-indicator.good { background: var(--accent-good); }
+        .status-indicator.warn { background: var(--accent-warn); }
+        .status-indicator.error { background: var(--accent-error); animation: blink 1s infinite; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .status-text {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        /* Alert Banner */
+        .alert-banner {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 24px;
+            background: #fef6f6;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .alert-banner.show {
+            display: flex;
+        }
+
+        .alert-banner svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--accent-error);
             flex-shrink: 0;
         }
 
-        button:hover {
-            background: #333333;
+        .alert-banner span {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 0.03em;
+            color: var(--accent-error);
         }
 
-        button.stop {
-            background: #e5484d;
+        /* Chart Section */
+        .chart-section {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            position: relative;
         }
 
-        button.stop:hover {
-            background: #c93c40;
-        }
-
-        button svg {
-            width: 16px;
-            height: 16px;
+        .chart-label {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 400;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
         }
 
         .chart-container {
-            margin-top: 16px;
-            min-height: 180px;
+            height: 140px;
             position: relative;
         }
 
@@ -158,114 +235,148 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #a3a3a3;
-            font-size: 14px;
-            background: linear-gradient(to bottom, #fafafa 0%, #f5f5f5 100%);
-            border-radius: 4px;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-        }
-
-        .stat {
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 24px;
-            font-weight: 600;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #666666;
-            margin-top: 4px;
-        }
-
-        .stat-unit {
-            font-size: 14px;
-            font-weight: 400;
-            color: #666666;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-tertiary);
+            letter-spacing: 0.03em;
         }
 
         .u-wrap {
             margin: 0 auto;
         }
 
-        .info-text {
-            font-size: 12px;
-            color: #a3a3a3;
-            margin-top: -12px;
-            margin-bottom: 20px;
+        /* Statistics Grid */
+        .stats-section {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
         }
 
-        @media (max-width: 600px) {
-            .stats {
+        .stat {
+            padding: 20px 16px;
+            text-align: center;
+            border-right: 1px solid var(--border);
+        }
+
+        .stat:last-child {
+            border-right: none;
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-label {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-text {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 400;
+            color: var(--text-tertiary);
+            letter-spacing: 0.03em;
+        }
+
+        /* Responsive */
+        @media (max-width: 540px) {
+            .latency-value {
+                font-size: 56px;
+            }
+
+            .stats-section {
                 grid-template-columns: repeat(2, 1fr);
             }
-            .latency-display {
-                font-size: 36px;
-                min-width: 140px;
+
+            .stat {
+                border-bottom: 1px solid var(--border);
+            }
+
+            .stat:nth-child(2) {
+                border-right: none;
+            }
+
+            .stat:nth-child(3),
+            .stat:nth-child(4) {
+                border-bottom: none;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Connection Speed Tester</h1>
-        <p class="info-text">Measures HTTP round-trip time to google.com/favicon.ico every second</p>
-
-        <div id="disconnectedBanner" class="disconnected-banner">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-            </svg>
-            <span>Internet connection lost. Waiting for reconnection...</span>
+    <div class="instrument">
+        <div class="header">
+            <span class="title">Network Latency Monitor</span>
+            <button id="toggleBtn" class="control-btn" title="Start measurement">
+                <svg viewBox="0 0 24 24">
+                    <polygon points="6,4 20,12 6,20" fill="currentColor" stroke="none"/>
+                </svg>
+            </button>
         </div>
 
-        <div class="panel">
-            <div class="status-row">
-                <div class="status-group">
-                    <div id="latency" class="latency-display offline">-- ms</div>
-                    <div class="status-indicator">
-                        <div id="statusDot" class="status-dot"></div>
-                        <span id="statusText">Stopped</span>
-                    </div>
-                </div>
-                <button id="toggleBtn" title="Start">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </button>
+        <div id="alertBanner" class="alert-banner">
+            <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke-width="1.5"/>
+                <line x1="12" y1="8" x2="12" y2="12" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+            <span>Connection interrupted — awaiting reconnection</span>
+        </div>
+
+        <div class="display-section">
+            <div id="latencyValue" class="latency-value offline">—</div>
+            <div class="latency-unit">milliseconds</div>
+            <div class="status-line">
+                <div id="statusIndicator" class="status-indicator"></div>
+                <span id="statusText" class="status-text">Idle</span>
             </div>
+        </div>
+
+        <div class="chart-section">
+            <div class="chart-label">60-Second History</div>
             <div id="chart" class="chart-container">
                 <div id="chartPlaceholder" class="chart-placeholder">
-                    Click Start to begin monitoring
+                    Press start to begin measurement
                 </div>
             </div>
         </div>
 
-        <div class="panel stats">
+        <div class="stats-section">
             <div class="stat">
-                <div id="minLatency" class="stat-value">--</div>
-                <div class="stat-label">Min (ms)</div>
+                <div id="minLatency" class="stat-value">—</div>
+                <div class="stat-label">Minimum</div>
             </div>
             <div class="stat">
-                <div id="maxLatency" class="stat-value">--</div>
-                <div class="stat-label">Max (ms)</div>
+                <div id="maxLatency" class="stat-value">—</div>
+                <div class="stat-label">Maximum</div>
             </div>
             <div class="stat">
-                <div id="avgLatency" class="stat-value">--</div>
-                <div class="stat-label">Avg (ms)</div>
+                <div id="avgLatency" class="stat-value">—</div>
+                <div class="stat-label">Average</div>
             </div>
             <div class="stat">
-                <div id="successRate" class="stat-value">--<span class="stat-unit">%</span></div>
-                <div class="stat-label">Success</div>
+                <div id="successRate" class="stat-value">—</div>
+                <div class="stat-label">Success %</div>
             </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-text">HTTP round-trip measurement to google.com/favicon.ico · 1s interval</div>
         </div>
     </div>
 
@@ -283,11 +394,11 @@
         let successCount = 0;
         let totalCount = 0;
         let consecutiveFailures = 0;
-        const DISCONNECT_THRESHOLD = 3; // Show disconnected after 3 consecutive failures
+        const DISCONNECT_THRESHOLD = 3;
 
         const toggleBtn = document.getElementById('toggleBtn');
-        const latencyEl = document.getElementById('latency');
-        const statusDot = document.getElementById('statusDot');
+        const latencyValue = document.getElementById('latencyValue');
+        const statusIndicator = document.getElementById('statusIndicator');
         const statusText = document.getElementById('statusText');
         const minEl = document.getElementById('minLatency');
         const maxEl = document.getElementById('maxLatency');
@@ -295,17 +406,16 @@
         const successEl = document.getElementById('successRate');
         const chartEl = document.getElementById('chart');
         const chartPlaceholder = document.getElementById('chartPlaceholder');
-        const disconnectedBanner = document.getElementById('disconnectedBanner');
+        const alertBanner = document.getElementById('alertBanner');
 
         function getLatencyClass(ms) {
             if (ms === null) return 'offline';
             if (ms < 100) return 'good';
-            if (ms < 300) return 'medium';
-            return 'slow';
+            if (ms < 300) return 'warn';
+            return 'error';
         }
 
         function updateUI(latency) {
-            // Track consecutive failures
             if (latency === null) {
                 consecutiveFailures++;
             } else {
@@ -313,37 +423,37 @@
             }
 
             const isDisconnected = consecutiveFailures >= DISCONNECT_THRESHOLD;
-            const cls = isDisconnected ? 'disconnected' : getLatencyClass(latency);
+            const cls = isDisconnected ? 'error' : getLatencyClass(latency);
 
-            // Show/hide disconnected banner
-            if (isDisconnected) {
-                disconnectedBanner.classList.add('show');
-            } else {
-                disconnectedBanner.classList.remove('show');
-            }
+            // Alert banner
+            alertBanner.classList.toggle('show', isDisconnected);
 
-            latencyEl.textContent = latency !== null ? `${Math.round(latency)} ms` : '-- ms';
-            latencyEl.className = `latency-display ${isDisconnected ? 'offline' : cls}`;
+            // Primary display
+            latencyValue.textContent = latency !== null ? Math.round(latency) : '—';
+            latencyValue.className = `latency-value ${isDisconnected ? 'offline' : cls}`;
 
-            statusDot.className = `status-dot ${cls}`;
+            // Status indicator
+            statusIndicator.className = `status-indicator ${cls}`;
 
+            // Status text
             if (isDisconnected) {
                 statusText.textContent = 'Disconnected';
             } else if (latency !== null) {
-                statusText.textContent = cls === 'good' ? 'Connected' : cls === 'medium' ? 'Slow' : 'Very Slow';
+                if (cls === 'good') statusText.textContent = 'Optimal';
+                else if (cls === 'warn') statusText.textContent = 'Degraded';
+                else statusText.textContent = 'Poor';
             } else {
-                statusText.textContent = 'Connection Lost';
+                statusText.textContent = 'Timeout';
             }
 
-            // Update stats
+            // Statistics
             const validLatencies = latencies.filter(l => l !== null);
             if (validLatencies.length > 0) {
                 minEl.textContent = Math.round(Math.min(...validLatencies));
                 maxEl.textContent = Math.round(Math.max(...validLatencies));
                 avgEl.textContent = Math.round(validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length);
             }
-            const successPct = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : '--';
-            successEl.innerHTML = successPct + '<span class="stat-unit">%</span>';
+            successEl.textContent = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : '—';
         }
 
         async function ping() {
@@ -370,7 +480,6 @@
         }
 
         function createChart() {
-            // Initialize with placeholder data that has at least one valid point
             const now = Date.now() / 1000;
             timestamps = [];
             latencies = [];
@@ -381,15 +490,15 @@
             }
 
             const opts = {
-                width: chartEl.clientWidth || 700,
-                height: 180,
+                width: chartEl.clientWidth || 580,
+                height: 140,
                 series: [
                     {},
                     {
                         label: 'Latency',
-                        stroke: '#0070f3',
-                        width: 2,
-                        fill: 'rgba(0, 112, 243, 0.08)',
+                        stroke: '#1a1a1a',
+                        width: 1.5,
+                        fill: 'rgba(26, 26, 26, 0.04)',
                         points: { show: false },
                         spanGaps: false
                     }
@@ -402,15 +511,14 @@
                     }
                 },
                 axes: [
+                    { show: false },
                     {
-                        show: false
-                    },
-                    {
-                        stroke: '#a3a3a3',
-                        grid: { stroke: '#f0f0f0', width: 1 },
-                        size: 70,
-                        gap: 5,
-                        values: (u, vals) => vals.map(v => Math.round(v) + ' ms')
+                        stroke: '#999999',
+                        font: '10px IBM Plex Mono',
+                        grid: { stroke: '#e8e8e6', width: 1 },
+                        size: 50,
+                        gap: 8,
+                        values: (u, vals) => vals.map(v => v + '')
                     }
                 ],
                 legend: { show: false },
@@ -424,7 +532,6 @@
             if (!uplot) return;
 
             const now = Date.now() / 1000;
-
             timestamps.push(now);
             latencies.push(latency);
 
@@ -433,11 +540,9 @@
                 latencies.shift();
             }
 
-            // Auto-scale Y axis based on data with nice round numbers
             const validLatencies = latencies.filter(l => l !== null);
             if (validLatencies.length > 0) {
                 const maxLatency = Math.max(...validLatencies);
-                // Round up to nice values: 50, 100, 150, 200, 300, 500, etc.
                 let yMax;
                 if (maxLatency <= 50) yMax = 75;
                 else if (maxLatency <= 100) yMax = 125;
@@ -464,38 +569,32 @@
             running = true;
 
             toggleBtn.innerHTML = `
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                <svg viewBox="0 0 24 24">
+                    <rect x="6" y="6" width="12" height="12" fill="currentColor" stroke="none"/>
                 </svg>
             `;
-            toggleBtn.title = 'Stop';
-            toggleBtn.classList.add('stop');
+            toggleBtn.title = 'Stop measurement';
+            toggleBtn.classList.add('active');
 
-            // Reset state
+            // Reset
             successCount = 0;
             totalCount = 0;
             consecutiveFailures = 0;
-            disconnectedBanner.classList.remove('show');
-            minEl.textContent = '--';
-            maxEl.textContent = '--';
-            avgEl.textContent = '--';
-            successEl.innerHTML = '--<span class="stat-unit">%</span>';
+            alertBanner.classList.remove('show');
+            minEl.textContent = '—';
+            maxEl.textContent = '—';
+            avgEl.textContent = '—';
+            successEl.textContent = '—';
 
-            // Destroy existing chart
             if (uplot) {
                 uplot.destroy();
                 uplot = null;
             }
 
-            // Hide placeholder and clear chart
             if (chartPlaceholder) chartPlaceholder.style.display = 'none';
             chartEl.querySelectorAll('.u-wrap').forEach(el => el.remove());
 
-            // Create fresh chart
             createChart();
-
-            // Start pinging
             runPing();
             intervalId = setInterval(runPing, PING_INTERVAL);
         }
@@ -505,36 +604,30 @@
             running = false;
 
             toggleBtn.innerHTML = `
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <svg viewBox="0 0 24 24">
+                    <polygon points="6,4 20,12 6,20" fill="currentColor" stroke="none"/>
                 </svg>
             `;
-            toggleBtn.title = 'Start';
-            toggleBtn.classList.remove('stop');
+            toggleBtn.title = 'Start measurement';
+            toggleBtn.classList.remove('active');
 
             if (intervalId) {
                 clearInterval(intervalId);
                 intervalId = null;
             }
 
-            statusDot.className = 'status-dot';
-            statusText.textContent = 'Stopped';
-            disconnectedBanner.classList.remove('show');
+            statusIndicator.className = 'status-indicator';
+            statusText.textContent = 'Idle';
+            alertBanner.classList.remove('show');
         }
 
         toggleBtn.addEventListener('click', () => {
-            if (running) {
-                stop();
-            } else {
-                start();
-            }
+            running ? stop() : start();
         });
 
-        // Handle resize
         window.addEventListener('resize', () => {
             if (uplot) {
-                uplot.setSize({ width: chartEl.clientWidth, height: 200 });
+                uplot.setSize({ width: chartEl.clientWidth, height: 140 });
             }
         });
     </script>
