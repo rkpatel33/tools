@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Speed Tester</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%231a1a1a'><path stroke-linecap='round' stroke-linejoin='round' d='M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A8.966 8.966 0 0 1 3 12c0-1.97.633-3.792 1.708-5.274'/></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' fill='%23f5f5f3'/><svg x='30' y='30' width='120' height='120' viewBox='0 0 24 24' fill='none' stroke='%231a1a1a' stroke-width='1.5'><path stroke-linecap='round' stroke-linejoin='round' d='M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A8.966 8.966 0 0 1 3 12c0-1.97.633-3.792 1.708-5.274'/></svg></svg>">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Latency">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.iife.min.js"></script>
+    <style>
+        :root {
+            --bg: #f5f5f3;
+            --surface: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-tertiary: #999999;
+            --border: #e0e0de;
+            --accent-good: #2d8a4e;
+            --accent-warn: #c77800;
+            --accent-error: #c73a3a;
+            --font-mono: 'IBM Plex Mono', 'SF Mono', monospace;
+            --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .instrument {
+            background: var(--surface);
+            width: 100%;
+            max-width: 640px;
+            border: 1px solid var(--border);
+        }
+
+        /* Header */
+        .header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .title {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .control-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--text-primary);
+            background: transparent;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+
+        .control-btn:hover {
+            background: var(--text-primary);
+        }
+
+        .control-btn:hover svg {
+            stroke: var(--surface);
+            fill: var(--surface);
+            color: var(--surface);
+        }
+
+        .control-btn.active {
+            background: var(--accent-error);
+            border-color: var(--accent-error);
+        }
+
+        .control-btn.active svg {
+            stroke: var(--surface);
+            fill: var(--surface);
+            color: var(--surface);
+        }
+
+        .control-btn.active:hover {
+            background: #a83232;
+            border-color: #a83232;
+        }
+
+        .control-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--text-primary);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        /* Primary Display */
+        .display-section {
+            padding: 32px 24px 24px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .latency-value {
+            font-family: var(--font-mono);
+            font-size: 72px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .latency-value.good { color: var(--accent-good); }
+        .latency-value.warn { color: var(--accent-warn); }
+        .latency-value.error { color: var(--accent-error); }
+        .latency-value.offline { color: var(--text-tertiary); }
+
+        .latency-unit {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            letter-spacing: 0.05em;
+        }
+
+        .status-line {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .status-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-tertiary);
+        }
+
+        .status-indicator.good { background: var(--accent-good); }
+        .status-indicator.warn { background: var(--accent-warn); }
+        .status-indicator.error { background: var(--accent-error); animation: blink 1s infinite; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .status-text {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        /* Alert Banner */
+        .alert-banner {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 24px;
+            background: #fef6f6;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .alert-banner.show {
+            display: flex;
+        }
+
+        .alert-banner svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--accent-error);
+            flex-shrink: 0;
+        }
+
+        .alert-banner span {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 0.03em;
+            color: var(--accent-error);
+        }
+
+        /* Chart Section */
+        .chart-section {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+
+        .chart-label {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 400;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+        }
+
+        .chart-container {
+            height: 140px;
+            position: relative;
+        }
+
+        .chart-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-tertiary);
+            letter-spacing: 0.03em;
+        }
+
+        .u-wrap {
+            margin: 0 auto;
+        }
+
+        /* Statistics Grid */
+        .stats-section {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .stat {
+            padding: 20px 16px;
+            text-align: center;
+            border-right: 1px solid var(--border);
+        }
+
+        .stat:last-child {
+            border-right: none;
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-label {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-text {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 400;
+            color: var(--text-tertiary);
+            letter-spacing: 0.03em;
+        }
+
+        /* Responsive */
+        @media (max-width: 540px) {
+            .latency-value {
+                font-size: 56px;
+            }
+
+            .stats-section {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .stat {
+                border-bottom: 1px solid var(--border);
+            }
+
+            .stat:nth-child(2) {
+                border-right: none;
+            }
+
+            .stat:nth-child(3),
+            .stat:nth-child(4) {
+                border-bottom: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="instrument">
+        <div class="header">
+            <span class="title">Network Latency Monitor</span>
+            <button id="toggleBtn" class="control-btn" title="Start measurement">
+                <svg viewBox="0 0 24 24">
+                    <polygon points="6,4 20,12 6,20" fill="currentColor" stroke="none"/>
+                </svg>
+            </button>
+        </div>
+
+        <div id="alertBanner" class="alert-banner">
+            <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke-width="1.5"/>
+                <line x1="12" y1="8" x2="12" y2="12" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+            <span>Connection interrupted — awaiting reconnection</span>
+        </div>
+
+        <div class="display-section">
+            <div id="latencyValue" class="latency-value offline">—</div>
+            <div class="latency-unit">milliseconds</div>
+            <div class="status-line">
+                <div id="statusIndicator" class="status-indicator"></div>
+                <span id="statusText" class="status-text">Idle</span>
+            </div>
+        </div>
+
+        <div class="chart-section">
+            <div class="chart-label">120-Second History</div>
+            <div id="chart" class="chart-container">
+                <div id="chartPlaceholder" class="chart-placeholder">
+                    Press start to begin measurement
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-section">
+            <div class="stat">
+                <div id="minLatency" class="stat-value">—</div>
+                <div class="stat-label">Minimum</div>
+            </div>
+            <div class="stat">
+                <div id="maxLatency" class="stat-value">—</div>
+                <div class="stat-label">Maximum</div>
+            </div>
+            <div class="stat">
+                <div id="avgLatency" class="stat-value">—</div>
+                <div class="stat-label">Average</div>
+            </div>
+            <div class="stat">
+                <div id="successRate" class="stat-value">—</div>
+                <div class="stat-label">Success %</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-text">HTTP round-trip measurement to google.com/favicon.ico · 1s interval</div>
+        </div>
+    </div>
+
+    <script>
+        const PING_URL = 'https://www.google.com/favicon.ico';
+        const PING_INTERVAL = 1000;
+        const TIMEOUT = 5000;
+        const MAX_POINTS = 120;
+
+        let running = false;
+        let intervalId = null;
+        let uplot = null;
+        let timestamps = [];
+        let latencies = [];
+        let successCount = 0;
+        let totalCount = 0;
+        let consecutiveFailures = 0;
+        const DISCONNECT_THRESHOLD = 3;
+
+        const toggleBtn = document.getElementById('toggleBtn');
+        const latencyValue = document.getElementById('latencyValue');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const minEl = document.getElementById('minLatency');
+        const maxEl = document.getElementById('maxLatency');
+        const avgEl = document.getElementById('avgLatency');
+        const successEl = document.getElementById('successRate');
+        const chartEl = document.getElementById('chart');
+        const chartPlaceholder = document.getElementById('chartPlaceholder');
+        const alertBanner = document.getElementById('alertBanner');
+
+        function getLatencyClass(ms) {
+            if (ms === null) return 'offline';
+            if (ms < 100) return 'good';
+            if (ms < 300) return 'warn';
+            return 'error';
+        }
+
+        function updateUI(latency) {
+            if (latency === null) {
+                consecutiveFailures++;
+            } else {
+                consecutiveFailures = 0;
+            }
+
+            const isDisconnected = consecutiveFailures >= DISCONNECT_THRESHOLD;
+            const cls = isDisconnected ? 'error' : getLatencyClass(latency);
+
+            // Alert banner
+            alertBanner.classList.toggle('show', isDisconnected);
+
+            // Primary display
+            latencyValue.textContent = latency !== null ? Math.round(latency) : '—';
+            latencyValue.className = `latency-value ${isDisconnected ? 'offline' : cls}`;
+
+            // Status indicator
+            statusIndicator.className = `status-indicator ${cls}`;
+
+            // Status text
+            if (isDisconnected) {
+                statusText.textContent = 'Disconnected';
+            } else if (latency !== null) {
+                if (cls === 'good') statusText.textContent = 'Optimal';
+                else if (cls === 'warn') statusText.textContent = 'Degraded';
+                else statusText.textContent = 'Poor';
+            } else {
+                statusText.textContent = 'Timeout';
+            }
+
+            // Statistics
+            const validLatencies = latencies.filter(l => l !== null);
+            if (validLatencies.length > 0) {
+                minEl.textContent = Math.round(Math.min(...validLatencies));
+                maxEl.textContent = Math.round(Math.max(...validLatencies));
+                avgEl.textContent = Math.round(validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length);
+            }
+            successEl.textContent = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : '—';
+        }
+
+        async function ping() {
+            const start = performance.now();
+            totalCount++;
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
+                await fetch(PING_URL + '?t=' + Date.now(), {
+                    mode: 'no-cors',
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                const latency = performance.now() - start;
+                successCount++;
+                return latency;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function createChart() {
+            const now = Date.now() / 1000;
+            timestamps = [];
+            latencies = [];
+
+            for (let i = 0; i < MAX_POINTS; i++) {
+                timestamps.push(now - (MAX_POINTS - i));
+                latencies.push(null);
+            }
+
+            const opts = {
+                width: chartEl.clientWidth || 580,
+                height: 140,
+                series: [
+                    {},
+                    {
+                        label: 'Latency',
+                        stroke: '#1a1a1a',
+                        width: 1.5,
+                        fill: 'rgba(26, 26, 26, 0.04)',
+                        points: { show: false },
+                        spanGaps: false
+                    }
+                ],
+                scales: {
+                    x: { time: false },
+                    y: {
+                        auto: false,
+                        range: [0, 200]
+                    }
+                },
+                axes: [
+                    { show: false },
+                    {
+                        stroke: '#999999',
+                        font: '10px IBM Plex Mono',
+                        grid: { stroke: '#e8e8e6', width: 1 },
+                        size: 50,
+                        gap: 8,
+                        values: (u, vals) => vals.map(v => v + '')
+                    }
+                ],
+                legend: { show: false },
+                cursor: { show: false }
+            };
+
+            uplot = new uPlot(opts, [timestamps, latencies], chartEl);
+        }
+
+        function updateChart(latency) {
+            if (!uplot) return;
+
+            const now = Date.now() / 1000;
+            timestamps.push(now);
+            latencies.push(latency);
+
+            if (timestamps.length > MAX_POINTS) {
+                timestamps.shift();
+                latencies.shift();
+            }
+
+            const validLatencies = latencies.filter(l => l !== null);
+            if (validLatencies.length > 0) {
+                const maxLatency = Math.max(...validLatencies);
+                let yMax;
+                if (maxLatency <= 50) yMax = 75;
+                else if (maxLatency <= 100) yMax = 125;
+                else if (maxLatency <= 150) yMax = 175;
+                else if (maxLatency <= 200) yMax = 250;
+                else if (maxLatency <= 300) yMax = 400;
+                else if (maxLatency <= 500) yMax = 600;
+                else yMax = Math.ceil(maxLatency / 500) * 500 + 100;
+
+                uplot.setScale('y', { min: 0, max: yMax });
+            }
+
+            uplot.setData([timestamps, latencies]);
+        }
+
+        async function runPing() {
+            const latency = await ping();
+            updateChart(latency);
+            updateUI(latency);
+        }
+
+        function start() {
+            if (running) return;
+            running = true;
+
+            toggleBtn.innerHTML = `
+                <svg viewBox="0 0 24 24">
+                    <rect x="6" y="6" width="12" height="12" fill="currentColor" stroke="none"/>
+                </svg>
+            `;
+            toggleBtn.title = 'Stop measurement';
+            toggleBtn.classList.add('active');
+
+            // Reset
+            successCount = 0;
+            totalCount = 0;
+            consecutiveFailures = 0;
+            alertBanner.classList.remove('show');
+            minEl.textContent = '—';
+            maxEl.textContent = '—';
+            avgEl.textContent = '—';
+            successEl.textContent = '—';
+
+            if (uplot) {
+                uplot.destroy();
+                uplot = null;
+            }
+
+            if (chartPlaceholder) chartPlaceholder.style.display = 'none';
+            chartEl.querySelectorAll('.u-wrap').forEach(el => el.remove());
+
+            createChart();
+            runPing();
+            intervalId = setInterval(runPing, PING_INTERVAL);
+        }
+
+        function stop() {
+            if (!running) return;
+            running = false;
+
+            toggleBtn.innerHTML = `
+                <svg viewBox="0 0 24 24">
+                    <polygon points="6,4 20,12 6,20" fill="currentColor" stroke="none"/>
+                </svg>
+            `;
+            toggleBtn.title = 'Start measurement';
+            toggleBtn.classList.remove('active');
+
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+
+            statusIndicator.className = 'status-indicator';
+            statusText.textContent = 'Idle';
+            alertBanner.classList.remove('show');
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            running ? stop() : start();
+        });
+
+        window.addEventListener('resize', () => {
+            if (uplot) {
+                uplot.setSize({ width: chartEl.clientWidth, height: 140 });
+            }
+        });
+    </script>
+</body>
+</html>
