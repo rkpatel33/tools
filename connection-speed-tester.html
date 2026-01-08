@@ -39,15 +39,22 @@
         .status-row {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 16px;
             margin-bottom: 20px;
+        }
+
+        .status-group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
 
         .latency-display {
             font-size: 48px;
             font-weight: 600;
             font-variant-numeric: tabular-nums;
-            min-width: 180px;
+            flex-shrink: 0;
         }
 
         .latency-display.good { color: #46a758; }
@@ -61,6 +68,7 @@
             gap: 8px;
             font-size: 14px;
             color: #666666;
+            flex-shrink: 0;
         }
 
         .status-dot {
@@ -74,25 +82,51 @@
         .status-dot.medium { background: #f5a623; }
         .status-dot.slow { background: #e5484d; }
         .status-dot.offline { background: #e5484d; animation: pulse 1s infinite; }
+        .status-dot.disconnected { background: #e5484d; animation: pulse 0.5s infinite; }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.4; }
         }
 
+        .disconnected-banner {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            color: #dc2626;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .disconnected-banner.show {
+            display: flex;
+        }
+
+        .disconnected-banner svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
         button {
             background: #171717;
             color: #ffffff;
             border: none;
-            padding: 10px 20px;
+            width: 40px;
+            height: 40px;
+            padding: 0;
             border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
             cursor: pointer;
             transition: background 0.15s ease;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
         button:hover {
@@ -177,20 +211,27 @@
     <div class="container">
         <h1>Connection Speed Tester</h1>
 
+        <div id="disconnectedBanner" class="disconnected-banner">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <span>Internet connection lost. Waiting for reconnection...</span>
+        </div>
+
         <div class="panel">
             <div class="status-row">
-                <div id="latency" class="latency-display offline">-- ms</div>
-                <div class="status-indicator">
-                    <div id="statusDot" class="status-dot"></div>
-                    <span id="statusText">Stopped</span>
+                <div class="status-group">
+                    <div id="latency" class="latency-display offline">-- ms</div>
+                    <div class="status-indicator">
+                        <div id="statusDot" class="status-dot"></div>
+                        <span id="statusText">Stopped</span>
+                    </div>
                 </div>
-                <div style="flex: 1;"></div>
-                <button id="toggleBtn">
+                <button id="toggleBtn" title="Start">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    Start
                 </button>
             </div>
             <div id="chart" class="chart-container">
@@ -233,6 +274,8 @@
         let latencies = [];
         let successCount = 0;
         let totalCount = 0;
+        let consecutiveFailures = 0;
+        const DISCONNECT_THRESHOLD = 3; // Show disconnected after 3 consecutive failures
 
         const toggleBtn = document.getElementById('toggleBtn');
         const latencyEl = document.getElementById('latency');
@@ -244,6 +287,7 @@
         const successEl = document.getElementById('successRate');
         const chartEl = document.getElementById('chart');
         const chartPlaceholder = document.getElementById('chartPlaceholder');
+        const disconnectedBanner = document.getElementById('disconnectedBanner');
 
         function getLatencyClass(ms) {
             if (ms === null) return 'offline';
@@ -253,15 +297,35 @@
         }
 
         function updateUI(latency) {
-            const cls = getLatencyClass(latency);
+            // Track consecutive failures
+            if (latency === null) {
+                consecutiveFailures++;
+            } else {
+                consecutiveFailures = 0;
+            }
+
+            const isDisconnected = consecutiveFailures >= DISCONNECT_THRESHOLD;
+            const cls = isDisconnected ? 'disconnected' : getLatencyClass(latency);
+
+            // Show/hide disconnected banner
+            if (isDisconnected) {
+                disconnectedBanner.classList.add('show');
+            } else {
+                disconnectedBanner.classList.remove('show');
+            }
 
             latencyEl.textContent = latency !== null ? `${Math.round(latency)} ms` : '-- ms';
-            latencyEl.className = `latency-display ${cls}`;
+            latencyEl.className = `latency-display ${isDisconnected ? 'offline' : cls}`;
 
             statusDot.className = `status-dot ${cls}`;
-            statusText.textContent = latency !== null ?
-                (cls === 'good' ? 'Connected' : cls === 'medium' ? 'Slow' : 'Very Slow') :
-                'Connection Lost';
+
+            if (isDisconnected) {
+                statusText.textContent = 'Disconnected';
+            } else if (latency !== null) {
+                statusText.textContent = cls === 'good' ? 'Connected' : cls === 'medium' ? 'Slow' : 'Very Slow';
+            } else {
+                statusText.textContent = 'Connection Lost';
+            }
 
             // Update stats
             const validLatencies = latencies.filter(l => l !== null);
@@ -336,7 +400,7 @@
                     {
                         stroke: '#a3a3a3',
                         grid: { stroke: '#f0f0f0', width: 1 },
-                        size: 55,
+                        size: 70,
                         gap: 5,
                         values: (u, vals) => vals.map(v => Math.round(v) + ' ms')
                     }
@@ -396,13 +460,15 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
                 </svg>
-                Stop
             `;
+            toggleBtn.title = 'Stop';
             toggleBtn.classList.add('stop');
 
-            // Reset stats
+            // Reset state
             successCount = 0;
             totalCount = 0;
+            consecutiveFailures = 0;
+            disconnectedBanner.classList.remove('show');
             minEl.textContent = '--';
             maxEl.textContent = '--';
             avgEl.textContent = '--';
@@ -435,8 +501,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
-                Start
             `;
+            toggleBtn.title = 'Start';
             toggleBtn.classList.remove('stop');
 
             if (intervalId) {
@@ -446,6 +512,7 @@
 
             statusDot.className = 'status-dot';
             statusText.textContent = 'Stopped';
+            disconnectedBanner.classList.remove('show');
         }
 
         toggleBtn.addEventListener('click', () => {
