@@ -3,38 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DocFilm Scanner</title>
+    <title>Document Scanner</title>
 
     <!-- iOS PWA Configuration -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="DocFilm">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Scanner">
     <link rel="apple-touch-icon" href="icons/document-scanner-icon.png">
 
     <!-- Android PWA Configuration -->
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#0d0d0d">
+    <meta name="theme-color" content="#f5f5f5">
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23111'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'/%3E%3C/svg%3E">
 
     <style>
         :root {
-            --bg-primary: #0d0d0d;
-            --bg-secondary: #1a1a1a;
-            --bg-elevated: #242424;
-            --text-primary: #f5f5f5;
-            --text-secondary: #888;
-            --text-muted: #555;
-            --accent: #ff6b35;
-            --accent-dim: #cc5529;
-            --film-border: #2a2a2a;
-            --viewfinder: rgba(255, 107, 53, 0.8);
-            --corner-glow: #ff6b35;
-            --success: #4ade80;
-            --grain-opacity: 0.03;
+            --bg: #f5f5f5;
+            --surface: #ffffff;
+            --text: #111111;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border: #e0e0e0;
+            --accent: #111111;
+            --indicator: #22c55e;
+            --corner: #ef4444;
         }
 
         * {
@@ -45,29 +39,14 @@
         }
 
         body {
-            font-family: 'JetBrains Mono', monospace;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
             min-height: -webkit-fill-available;
             overflow: hidden;
             touch-action: none;
-            position: relative;
-        }
-
-        /* Film grain overlay */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1000;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-            opacity: var(--grain-opacity);
-            mix-blend-mode: overlay;
+            font-size: 12px;
         }
 
         .container {
@@ -77,86 +56,46 @@
             height: -webkit-fill-available;
         }
 
-        /* Header - Film strip style */
+        /* Header - Instrument panel style */
         .header {
-            padding: 12px 16px;
+            padding: 10px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--film-border);
-            position: relative;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
             flex-shrink: 0;
         }
 
-        .header::before,
-        .header::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 28px;
-            background: repeating-linear-gradient(
-                to bottom,
-                var(--bg-primary) 0px,
-                var(--bg-primary) 4px,
-                var(--film-border) 4px,
-                var(--film-border) 8px
-            );
-        }
-
-        .header::before { left: 0; }
-        .header::after { right: 0; }
-
-        .logo {
-            display: flex;
-            align-items: baseline;
-            gap: 6px;
-            margin-left: 36px;
-            z-index: 1;
-        }
-
-        .logo-mark {
-            font-family: 'Instrument Serif', serif;
-            font-size: 22px;
-            font-style: italic;
-            color: var(--accent);
-            letter-spacing: -0.5px;
-        }
-
-        .logo-text {
-            font-size: 10px;
+        .title {
+            font-size: 11px;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--text-muted);
+            letter-spacing: 1.5px;
         }
 
-        .status-badge {
+        .status-readout {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+        }
+
+        .status-led {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--indicator);
+            box-shadow: 0 0 4px var(--indicator);
+        }
+
+        .status-text {
             font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--text-secondary);
-            margin-right: 36px;
-            z-index: 1;
         }
 
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--success);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        /* Main viewfinder area */
+        /* Main viewport */
         .main-area {
             flex: 1;
             position: relative;
@@ -164,89 +103,24 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-primary);
+            background: var(--bg);
         }
 
-        /* Viewfinder frame */
-        .viewfinder-frame {
+        /* Measurement overlay */
+        .measurement-bar {
             position: absolute;
-            inset: 20px;
-            border: 1px solid var(--film-border);
-            pointer-events: none;
-            z-index: 10;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 4px 8px;
+            font-size: 10px;
+            color: var(--text-secondary);
+            z-index: 20;
         }
 
-        .viewfinder-frame::before {
-            content: '';
-            position: absolute;
-            inset: -1px;
-            border: 1px solid rgba(255, 107, 53, 0.1);
-        }
-
-        /* Corner brackets */
-        .corner-bracket {
-            position: absolute;
-            width: 24px;
-            height: 24px;
-            border-color: var(--viewfinder);
-            border-style: solid;
-            border-width: 0;
-            opacity: 0.6;
-        }
-
-        .corner-bracket.tl { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
-        .corner-bracket.tr { top: -1px; right: -1px; border-top-width: 2px; border-right-width: 2px; }
-        .corner-bracket.br { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
-        .corner-bracket.bl { bottom: -1px; left: -1px; border-bottom-width: 2px; border-left-width: 2px; }
-
-        /* Crosshairs */
-        .crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            pointer-events: none;
-            opacity: 0.3;
-        }
-
-        .crosshair::before,
-        .crosshair::after {
-            content: '';
-            position: absolute;
-            background: var(--viewfinder);
-        }
-
-        .crosshair::before {
-            width: 1px;
-            height: 100%;
+        .measurement-bar.bottom {
+            bottom: 8px;
             left: 50%;
             transform: translateX(-50%);
-        }
-
-        .crosshair::after {
-            width: 100%;
-            height: 1px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-
-        /* Info overlay */
-        .info-overlay {
-            position: absolute;
-            bottom: 12px;
-            left: 12px;
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--text-muted);
-            z-index: 11;
-        }
-
-        .info-overlay span {
-            display: block;
-            margin-top: 2px;
         }
 
         video, canvas {
@@ -276,6 +150,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
         #resultCanvas {
@@ -284,6 +159,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .corner-overlay {
@@ -300,99 +176,87 @@
         .corner-overlay.active { display: block; }
         .corner-overlay svg { width: 100%; height: 100%; }
 
-        /* Document corner handles - Glowing orbs */
+        /* Corner handles - precise crosshairs */
         .corner-handle {
-            width: 28px;
-            height: 28px;
+            width: 20px;
+            height: 20px;
             position: absolute;
             pointer-events: none;
             transform: translate(-50%, -50%);
-            border-radius: 50%;
-            background: var(--corner-glow);
-            box-shadow:
-                0 0 20px var(--corner-glow),
-                0 0 40px rgba(255, 107, 53, 0.4),
-                inset 0 0 10px rgba(255, 255, 255, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.5);
         }
 
+        .corner-handle::before,
         .corner-handle::after {
             content: '';
             position: absolute;
-            inset: 4px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), transparent);
+            background: var(--corner);
         }
 
-        /* Controls */
+        .corner-handle::before {
+            width: 20px;
+            height: 2px;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+        }
+
+        .corner-handle::after {
+            width: 2px;
+            height: 20px;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+        }
+
+        /* Controls - Laboratory panel */
         .controls {
-            padding: 16px;
-            background: var(--bg-secondary);
-            border-top: 1px solid var(--film-border);
+            padding: 12px 16px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
             flex-shrink: 0;
         }
 
         .button-row {
             display: flex;
-            gap: 12px;
+            gap: 8px;
             justify-content: center;
             align-items: center;
         }
 
-        /* Action buttons - Film camera style */
         button {
-            background: var(--bg-elevated);
-            color: var(--text-primary);
-            border: 1px solid var(--film-border);
-            width: 52px;
-            height: 52px;
-            border-radius: 50%;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            border-radius: 4px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.1s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 0;
-            position: relative;
-        }
-
-        button::before {
-            content: '';
-            position: absolute;
-            inset: 3px;
-            border-radius: 50%;
-            border: 1px solid var(--film-border);
-            pointer-events: none;
         }
 
         button:hover {
-            background: var(--bg-primary);
+            background: var(--surface);
             border-color: var(--text-muted);
         }
 
         button:active {
-            transform: scale(0.95);
+            background: var(--border);
         }
 
         button.primary {
-            width: 64px;
-            height: 64px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
-            border: none;
-            box-shadow:
-                0 4px 20px rgba(255, 107, 53, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.2);
-        }
-
-        button.primary::before {
-            border-color: rgba(255, 255, 255, 0.2);
+            width: 52px;
+            height: 52px;
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
         }
 
         button.primary:hover {
-            background: linear-gradient(135deg, #ff7a4a, var(--accent));
-            box-shadow:
-                0 6px 30px rgba(255, 107, 53, 0.5),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            background: #333;
         }
 
         button:disabled {
@@ -401,38 +265,33 @@
         }
 
         button svg {
-            width: 22px;
-            height: 22px;
+            width: 16px;
+            height: 16px;
         }
 
-        /* Select dropdown */
         select {
-            background: var(--bg-elevated);
-            color: var(--text-secondary);
-            border: 1px solid var(--film-border);
-            padding: 10px 32px 10px 12px;
-            border-radius: 20px;
-            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 0 24px 0 10px;
+            border-radius: 4px;
+            font-family: inherit;
             font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
             cursor: pointer;
             appearance: none;
             -webkit-appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23888'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 10px center;
+            background-position: right 6px center;
             background-size: 12px;
-            height: 36px;
-        }
-
-        select:hover {
-            border-color: var(--text-muted);
+            height: 44px;
         }
 
         select:focus {
             outline: none;
-            border-color: var(--accent);
+            border-color: var(--text);
         }
 
         /* Loading overlay */
@@ -443,12 +302,12 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(13, 13, 13, 0.95);
+            background: rgba(245, 245, 245, 0.95);
             z-index: 100;
             align-items: center;
             justify-content: center;
             flex-direction: column;
-            gap: 20px;
+            gap: 12px;
         }
 
         .loading-overlay.active {
@@ -456,12 +315,12 @@
         }
 
         .spinner {
-            width: 48px;
-            height: 48px;
-            border: 2px solid var(--film-border);
-            border-top-color: var(--accent);
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border);
+            border-top-color: var(--text);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
         }
 
         @keyframes spin {
@@ -469,9 +328,9 @@
         }
 
         .loading-text {
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
             color: var(--text-secondary);
         }
 
@@ -481,66 +340,44 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 32px;
+            gap: 16px;
             padding: 40px;
             text-align: center;
         }
 
         .intro-icon {
-            width: 120px;
-            height: 120px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--film-border);
-            border-radius: 60px;
+            width: 64px;
+            height: 64px;
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
-        }
-
-        .intro-icon::before {
-            content: '';
-            position: absolute;
-            inset: 8px;
-            border: 1px solid var(--film-border);
-            border-radius: 50%;
         }
 
         .intro-icon svg {
             width: 48px;
             height: 48px;
-            color: var(--accent);
+            stroke: var(--text);
         }
 
         .intro-title {
-            font-family: 'Instrument Serif', serif;
-            font-size: 32px;
-            font-weight: 400;
-            letter-spacing: -0.5px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
         .intro-desc {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-secondary);
-            max-width: 280px;
-            line-height: 1.7;
-            letter-spacing: 0.3px;
-        }
-
-        .intro-hint {
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--text-muted);
-            margin-top: 8px;
+            max-width: 260px;
+            line-height: 1.6;
         }
 
         /* State management */
         [data-state="intro"] #video,
         [data-state="intro"] #previewCanvas,
         [data-state="intro"] #resultCanvas,
-        [data-state="intro"] .corner-overlay,
-        [data-state="intro"] .viewfinder-frame { display: none; }
+        [data-state="intro"] .corner-overlay { display: none; }
 
         [data-state="camera"] .intro-screen,
         [data-state="camera"] #previewCanvas,
@@ -550,95 +387,29 @@
 
         [data-state="adjust"] .intro-screen,
         [data-state="adjust"] #video,
-        [data-state="adjust"] #resultCanvas,
-        [data-state="adjust"] .viewfinder-frame { display: none; }
+        [data-state="adjust"] #resultCanvas { display: none; }
         [data-state="adjust"] #previewCanvas { display: block; }
         [data-state="adjust"] .corner-overlay { display: block; }
 
         [data-state="result"] .intro-screen,
         [data-state="result"] #video,
         [data-state="result"] #previewCanvas,
-        [data-state="result"] .corner-overlay,
-        [data-state="result"] .viewfinder-frame { display: none; }
+        [data-state="result"] .corner-overlay { display: none; }
         [data-state="result"] #resultCanvas { display: block; }
-
-        /* Button labels */
-        .btn-label {
-            position: absolute;
-            bottom: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--text-muted);
-            white-space: nowrap;
-        }
-
-        .button-with-label {
-            position: relative;
-            margin-bottom: 20px;
-        }
-
-        /* Success animation for result */
-        [data-state="result"] .main-area::after {
-            content: 'SCAN COMPLETE';
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--success);
-            animation: fadeIn 0.5s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Adjust state info */
-        [data-state="adjust"] .main-area::after {
-            content: 'DRAG CORNERS TO ADJUST';
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--text-muted);
-            animation: fadeIn 0.5s ease;
-        }
     </style>
 </head>
 <body data-state="intro">
     <div class="container">
         <div class="header">
-            <div class="logo">
-                <span class="logo-mark">DocFilm</span>
-                <span class="logo-text">Scanner</span>
-            </div>
-            <div class="status-badge">
-                <div class="status-dot"></div>
-                <span id="status">Ready</span>
+            <div class="title">Document Scanner</div>
+            <div class="status-readout">
+                <div class="status-led"></div>
+                <span class="status-text" id="status">Ready</span>
             </div>
         </div>
 
         <div class="main-area" id="mainArea">
-            <!-- Viewfinder frame -->
-            <div class="viewfinder-frame">
-                <div class="corner-bracket tl"></div>
-                <div class="corner-bracket tr"></div>
-                <div class="corner-bracket br"></div>
-                <div class="corner-bracket bl"></div>
-                <div class="crosshair"></div>
-            </div>
-
-            <div class="info-overlay">
-                <span id="resolutionInfo"></span>
-            </div>
+            <div class="measurement-bar bottom" id="measurementBar"></div>
 
             <div class="intro-screen">
                 <div class="intro-icon">
@@ -646,9 +417,8 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
                 </div>
-                <div class="intro-title">Scan Documents</div>
-                <div class="intro-desc">Capture documents with automatic edge detection, perspective correction, and high-quality output.</div>
-                <div class="intro-hint">Select capture method below</div>
+                <div class="intro-title">Document Scanner</div>
+                <div class="intro-desc">Capture documents with automatic edge detection and perspective correction.</div>
             </div>
 
             <video id="video" autoplay playsinline></video>
@@ -659,16 +429,7 @@
 
             <div class="corner-overlay" id="cornerOverlay">
                 <svg id="cornerSvg">
-                    <defs>
-                        <filter id="glow">
-                            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                            <feMerge>
-                                <feMergeNode in="coloredBlur"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
-                    </defs>
-                    <polygon id="cornerPolygon" fill="rgba(255, 107, 53, 0.08)" stroke="#ff6b35" stroke-width="2" filter="url(#glow)"/>
+                    <polygon id="cornerPolygon" fill="rgba(239, 68, 68, 0.05)" stroke="#ef4444" stroke-width="1" stroke-dasharray="4 2"/>
                 </svg>
                 <div class="corner-handle" id="handle-tl" data-corner="tl"></div>
                 <div class="corner-handle" id="handle-tr" data-corner="tr"></div>
@@ -679,31 +440,22 @@
 
         <div class="controls" id="controls">
             <div class="button-row" id="introControls">
-                <div class="button-with-label">
-                    <button class="primary" id="nativeCameraBtn" title="Hi-Res Photo">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        </svg>
-                    </button>
-                    <span class="btn-label">Photo</span>
-                </div>
-                <div class="button-with-label">
-                    <button id="startBtn" title="Live Camera">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                        </svg>
-                    </button>
-                    <span class="btn-label">Live</span>
-                </div>
-                <div class="button-with-label">
-                    <button id="uploadBtn" title="Upload Photo">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                        </svg>
-                    </button>
-                    <span class="btn-label">Upload</span>
-                </div>
+                <button class="primary" id="nativeCameraBtn" title="Capture">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </button>
+                <button id="startBtn" title="Live">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                </button>
+                <button id="uploadBtn" title="Upload">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                    </svg>
+                </button>
                 <input type="file" id="fileInput" accept="image/*" style="display: none;">
                 <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" style="display: none;">
             </div>
@@ -717,7 +469,6 @@
                 <button id="captureBtn" class="primary" title="Capture">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <circle cx="12" cy="12" r="10" stroke-width="1.5"/>
-                        <circle cx="12" cy="12" r="4" fill="currentColor"/>
                     </svg>
                 </button>
             </div>
@@ -728,19 +479,19 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                     </svg>
                 </button>
-                <button id="applyBtn" class="primary" title="Apply Transform">
+                <button id="applyBtn" class="primary" title="Apply">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7"></path>
                     </svg>
                 </button>
-                <select id="interpolationSelect" title="Interpolation">
+                <select id="interpolationSelect" title="Quality">
                     <option value="lanczos4">Lanczos4</option>
                     <option value="linear">Bilinear</option>
                 </select>
             </div>
 
             <div class="button-row" id="resultControls" style="display: none;">
-                <button id="newScanBtn" title="New Scan">
+                <button id="newScanBtn" title="New">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4"></path>
                     </svg>
@@ -768,24 +519,22 @@
     <script async src="https://docs.opencv.org/4.9.0/opencv.js" id="opencvScript"></script>
 
     <script>
+        // Constants
+        const MAX_PROCESS_SIZE = 1500;
+
         // State management
         let state = 'intro';
         let stream = null;
         let cvReady = false;
         let corners = null;
-        let originalImage = null;
+        let originalImageData = null;
+        let originalWidth = 0;
+        let originalHeight = 0;
+        let previewScale = 1;
         let imageScale = 1;
         let imageOffset = { x: 0, y: 0 };
         let liveDetectionId = null;
         let liveCorners = null;
-
-        // Interpolation setting
-        const interpolationSelect = document.getElementById('interpolationSelect');
-        const savedInterpolation = localStorage.getItem('docscanner-interpolation') || 'lanczos4';
-        interpolationSelect.value = savedInterpolation;
-        interpolationSelect.addEventListener('change', () => {
-            localStorage.setItem('docscanner-interpolation', interpolationSelect.value);
-        });
 
         // DOM elements
         const body = document.body;
@@ -796,12 +545,13 @@
         const resultCanvas = document.getElementById('resultCanvas');
         const mainArea = document.getElementById('mainArea');
         const status = document.getElementById('status');
-        const resolutionInfo = document.getElementById('resolutionInfo');
+        const measurementBar = document.getElementById('measurementBar');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
         const cornerOverlay = document.getElementById('cornerOverlay');
         const cornerPolygon = document.getElementById('cornerPolygon');
         const fileInput = document.getElementById('fileInput');
+        const interpolationSelect = document.getElementById('interpolationSelect');
 
         // Control groups
         const introControls = document.getElementById('introControls');
@@ -817,13 +567,19 @@
             bl: document.getElementById('handle-bl')
         };
 
-        // OpenCV ready callback
+        // Load saved interpolation
+        const savedInterpolation = localStorage.getItem('docscanner-interpolation') || 'lanczos4';
+        interpolationSelect.value = savedInterpolation;
+        interpolationSelect.addEventListener('change', () => {
+            localStorage.setItem('docscanner-interpolation', interpolationSelect.value);
+        });
+
+        // OpenCV ready
         window.onOpenCvReady = function() {
             cvReady = true;
             setStatus('Ready');
         };
 
-        // Check if OpenCV loaded
         document.getElementById('opencvScript').onload = function() {
             if (typeof cv !== 'undefined') {
                 cv.onRuntimeInitialized = () => {
@@ -847,6 +603,11 @@
             status.textContent = text;
         }
 
+        function setMeasurement(text) {
+            measurementBar.textContent = text;
+            measurementBar.style.display = text ? 'block' : 'none';
+        }
+
         function showLoading(text) {
             loadingText.textContent = text;
             loadingOverlay.classList.add('active');
@@ -856,12 +617,35 @@
             loadingOverlay.classList.remove('active');
         }
 
+        function createProcessingCanvas(sourceCanvas) {
+            const w = sourceCanvas.width;
+            const h = sourceCanvas.height;
+            const maxDim = Math.max(w, h);
+
+            if (maxDim <= MAX_PROCESS_SIZE) {
+                previewScale = 1;
+                return sourceCanvas;
+            }
+
+            previewScale = MAX_PROCESS_SIZE / maxDim;
+            const newW = Math.round(w * previewScale);
+            const newH = Math.round(h * previewScale);
+
+            const smallCanvas = document.createElement('canvas');
+            smallCanvas.width = newW;
+            smallCanvas.height = newH;
+            const ctx = smallCanvas.getContext('2d');
+            ctx.drawImage(sourceCanvas, 0, 0, newW, newH);
+
+            return smallCanvas;
+        }
+
         // Camera functions
         let imageCapture = null;
 
         async function startCamera() {
             try {
-                showLoading('Initializing...');
+                showLoading('Starting camera...');
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'environment',
@@ -876,7 +660,7 @@
                     await new Promise(r => setTimeout(r, 50));
                 }
 
-                resolutionInfo.textContent = `${video.videoWidth} × ${video.videoHeight}`;
+                setMeasurement(`${video.videoWidth} × ${video.videoHeight} px`);
 
                 const track = stream.getVideoTracks()[0];
                 if (typeof ImageCapture !== 'undefined') {
@@ -889,7 +673,7 @@
                 startLiveDetection();
             } catch (err) {
                 hideLoading();
-                alert('Camera access denied: ' + err.message);
+                alert('Camera error: ' + err.message);
             }
         }
 
@@ -940,8 +724,12 @@
         function runLiveDetection() {
             if (!video.videoWidth || !video.videoHeight) return;
 
-            const w = video.videoWidth;
-            const h = video.videoHeight;
+            const maxLive = 800;
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const liveScale = Math.min(1, maxLive / Math.max(vw, vh));
+            const w = Math.round(vw * liveScale);
+            const h = Math.round(vh * liveScale);
 
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = w;
@@ -954,7 +742,17 @@
                 const detected = detectDocumentFast(src, w, h);
                 src.delete();
 
-                liveCorners = detected || null;
+                if (detected) {
+                    liveCorners = {
+                        tl: { x: detected.tl.x / liveScale, y: detected.tl.y / liveScale },
+                        tr: { x: detected.tr.x / liveScale, y: detected.tr.y / liveScale },
+                        br: { x: detected.br.x / liveScale, y: detected.br.y / liveScale },
+                        bl: { x: detected.bl.x / liveScale, y: detected.bl.y / liveScale }
+                    };
+                } else {
+                    liveCorners = null;
+                }
+
                 drawLiveOverlay();
             } catch (err) {
                 console.error('Live detection error:', err);
@@ -1049,28 +847,29 @@
                 y: liveCorners[key].y * scaleY + offsetY
             }));
 
-            // Fill with semi-transparent accent
-            ctx.fillStyle = 'rgba(255, 107, 53, 0.08)';
+            // Dashed outline
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 2]);
+
             ctx.beginPath();
             ctx.moveTo(points[0].x, points[0].y);
             for (let i = 1; i < points.length; i++) {
                 ctx.lineTo(points[i].x, points[i].y);
             }
             ctx.closePath();
-            ctx.fill();
-
-            // Stroke
-            ctx.strokeStyle = '#ff6b35';
-            ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Corner dots
-            ctx.fillStyle = '#ff6b35';
-            const dotSize = 8;
+            // Crosshairs at corners
+            ctx.setLineDash([]);
+            const size = 10;
             for (const p of points) {
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, dotSize, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.moveTo(p.x - size, p.y);
+                ctx.lineTo(p.x + size, p.y);
+                ctx.moveTo(p.x, p.y - size);
+                ctx.lineTo(p.x, p.y + size);
+                ctx.stroke();
             }
         }
 
@@ -1085,7 +884,7 @@
                         const blob = await imageCapture.takePhoto();
                         imageBitmap = await createImageBitmap(blob);
                     } catch (e) {
-                        console.log('ImageCapture failed, using video frame:', e);
+                        console.log('ImageCapture failed:', e);
                     }
                 }
 
@@ -1093,12 +892,17 @@
                     imageBitmap = await createImageBitmap(video);
                 }
 
-                captureCanvas.width = imageBitmap.width;
-                captureCanvas.height = imageBitmap.height;
+                originalWidth = imageBitmap.width;
+                originalHeight = imageBitmap.height;
+
+                captureCanvas.width = originalWidth;
+                captureCanvas.height = originalHeight;
                 const ctx = captureCanvas.getContext('2d');
                 ctx.drawImage(imageBitmap, 0, 0);
 
-                resolutionInfo.textContent = `${imageBitmap.width} × ${imageBitmap.height}`;
+                originalImageData = captureCanvas.toDataURL('image/jpeg', 0.95);
+
+                setMeasurement(`${originalWidth} × ${originalHeight} px`);
 
                 stopCamera();
                 hideLoading();
@@ -1110,53 +914,92 @@
         }
 
         function loadImage(file) {
+            console.log('loadImage called with:', file.name, file.size);
+            showLoading('Loading...');
             const reader = new FileReader();
             reader.onload = function(e) {
+                console.log('FileReader onload, data length:', e.target.result.length);
                 const img = new Image();
                 img.onload = function() {
-                    captureCanvas.width = img.width;
-                    captureCanvas.height = img.height;
+                    console.log('Image loaded:', img.width, 'x', img.height);
+                    originalWidth = img.width;
+                    originalHeight = img.height;
+
+                    captureCanvas.width = originalWidth;
+                    captureCanvas.height = originalHeight;
                     const ctx = captureCanvas.getContext('2d');
                     ctx.drawImage(img, 0, 0);
-                    resolutionInfo.textContent = `${img.width} × ${img.height}`;
+
+                    originalImageData = e.target.result;
+
+                    setMeasurement(`${originalWidth} × ${originalHeight} px`);
+
                     processImage(captureCanvas);
                 };
+                img.onerror = function(err) {
+                    console.error('Image load error:', err);
+                    hideLoading();
+                    alert('Failed to load image');
+                };
                 img.src = e.target.result;
+            };
+            reader.onerror = function(err) {
+                console.error('FileReader error:', err);
+                hideLoading();
+                alert('Failed to read file');
             };
             reader.readAsDataURL(file);
         }
 
         async function processImage(canvas) {
-            showLoading('Detecting edges...');
+            console.log('processImage called, canvas:', canvas.width, 'x', canvas.height);
+            showLoading('Detecting...');
             setStatus('Processing');
 
             if (!cvReady) {
+                console.log('Waiting for OpenCV...');
                 let attempts = 0;
                 while (!cvReady && attempts < 50) {
                     await new Promise(r => setTimeout(r, 100));
                     attempts++;
                 }
                 if (!cvReady) {
+                    console.error('OpenCV failed to load after 5 seconds');
                     hideLoading();
-                    alert('OpenCV failed to load. Please refresh.');
+                    alert('OpenCV failed to load. Please refresh the page.');
                     setState('intro');
                     return;
                 }
             }
+            console.log('OpenCV ready, processing...');
 
-            originalImage = cv.imread(canvas);
-            corners = detectDocument(originalImage);
-            drawPreview();
+            try {
+                const processCanvas = createProcessingCanvas(canvas);
+                console.log('Processing canvas:', processCanvas.width, 'x', processCanvas.height, 'scale:', previewScale);
 
-            hideLoading();
-            setState('adjust');
-            setStatus('Adjust');
+                const src = cv.imread(processCanvas);
+                console.log('cv.imread done');
+                const detectedCorners = detectDocument(src, processCanvas.width, processCanvas.height);
+                console.log('detectDocument done:', detectedCorners);
+                src.delete();
+
+                corners = detectedCorners;
+                drawPreview(processCanvas);
+                console.log('drawPreview done');
+
+                hideLoading();
+                setState('adjust');
+                setStatus('Adjust');
+                console.log('State set to adjust');
+            } catch (err) {
+                console.error('Process error:', err);
+                hideLoading();
+                alert('Processing failed: ' + err.message);
+                setState('intro');
+            }
         }
 
-        function detectDocument(src) {
-            const width = src.cols;
-            const height = src.rows;
-
+        function detectDocument(src, width, height) {
             const margin = 0.1;
             let defaultCorners = {
                 tl: { x: width * margin, y: height * margin },
@@ -1222,14 +1065,12 @@
                     }
                     bestContour.delete();
 
-                    const orderedCorners = orderPoints(points);
-
                     for (let i = 0; i < contours.size(); i++) {
                         contours.get(i).delete();
                     }
                     contours.delete();
 
-                    return orderedCorners;
+                    return orderPoints(points);
                 }
 
                 for (let i = 0; i < contours.size(); i++) {
@@ -1261,32 +1102,38 @@
             };
         }
 
-        function drawPreview() {
+        function drawPreview(processCanvas) {
             const ctx = previewCanvas.getContext('2d');
 
             const containerRect = mainArea.getBoundingClientRect();
-            const imgWidth = originalImage.cols;
-            const imgHeight = originalImage.rows;
+            console.log('Container rect:', containerRect.width, 'x', containerRect.height);
+            const imgWidth = processCanvas.width;
+            const imgHeight = processCanvas.height;
 
             const scaleX = containerRect.width / imgWidth;
             const scaleY = containerRect.height / imgHeight;
-            imageScale = Math.min(scaleX, scaleY, 1);
+            imageScale = Math.min(scaleX, scaleY, 1) * 0.9; // 90% to leave margin
+            console.log('imageScale:', imageScale, 'scaleX:', scaleX, 'scaleY:', scaleY);
 
-            const displayWidth = imgWidth * imageScale;
-            const displayHeight = imgHeight * imageScale;
+            const displayWidth = Math.round(imgWidth * imageScale);
+            const displayHeight = Math.round(imgHeight * imageScale);
+            console.log('Display size:', displayWidth, 'x', displayHeight);
 
             previewCanvas.width = displayWidth;
             previewCanvas.height = displayHeight;
 
+            // Force display style
+            previewCanvas.style.display = 'block';
+
             imageOffset.x = (containerRect.width - displayWidth) / 2;
             imageOffset.y = (containerRect.height - displayHeight) / 2;
+            console.log('Image offset:', imageOffset.x, imageOffset.y);
 
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = imgWidth;
-            tempCanvas.height = imgHeight;
-            cv.imshow(tempCanvas, originalImage);
+            ctx.drawImage(processCanvas, 0, 0, displayWidth, displayHeight);
+            console.log('Canvas drawn, data exists:', ctx.getImageData(0, 0, 1, 1).data[3] > 0);
 
-            ctx.drawImage(tempCanvas, 0, 0, displayWidth, displayHeight);
+            // Make sure corner overlay is active
+            cornerOverlay.classList.add('active');
 
             updateCornerHandles();
         }
@@ -1379,8 +1226,10 @@
             let x = dragStartCorner.x + deltaX;
             let y = dragStartCorner.y + deltaY;
 
-            x = Math.max(0, Math.min(x, originalImage.cols));
-            y = Math.max(0, Math.min(y, originalImage.rows));
+            const previewW = previewCanvas.width / imageScale;
+            const previewH = previewCanvas.height / imageScale;
+            x = Math.max(0, Math.min(x, previewW));
+            y = Math.max(0, Math.min(y, previewH));
 
             corners[dragCornerKey] = { x, y };
             updateCornerHandles();
@@ -1403,68 +1252,94 @@
             showLoading('Transforming...');
             setStatus('Processing');
 
-            setTimeout(() => {
+            setTimeout(async () => {
                 try {
-                    const widthTop = Math.hypot(corners.tr.x - corners.tl.x, corners.tr.y - corners.tl.y);
-                    const widthBottom = Math.hypot(corners.br.x - corners.bl.x, corners.br.y - corners.bl.y);
-                    const heightLeft = Math.hypot(corners.bl.x - corners.tl.x, corners.bl.y - corners.tl.y);
-                    const heightRight = Math.hypot(corners.br.x - corners.tr.x, corners.br.y - corners.tr.y);
+                    const scaledCorners = {
+                        tl: { x: corners.tl.x / previewScale, y: corners.tl.y / previewScale },
+                        tr: { x: corners.tr.x / previewScale, y: corners.tr.y / previewScale },
+                        br: { x: corners.br.x / previewScale, y: corners.br.y / previewScale },
+                        bl: { x: corners.bl.x / previewScale, y: corners.bl.y / previewScale }
+                    };
 
-                    const outputWidth = Math.round(Math.max(widthTop, widthBottom));
-                    const outputHeight = Math.round(Math.max(heightLeft, heightRight));
+                    const img = new Image();
+                    img.onload = function() {
+                        const origCanvas = document.createElement('canvas');
+                        origCanvas.width = originalWidth;
+                        origCanvas.height = originalHeight;
+                        const origCtx = origCanvas.getContext('2d');
+                        origCtx.drawImage(img, 0, 0);
 
-                    const srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
-                        corners.tl.x, corners.tl.y,
-                        corners.tr.x, corners.tr.y,
-                        corners.br.x, corners.br.y,
-                        corners.bl.x, corners.bl.y
-                    ]);
+                        const src = cv.imread(origCanvas);
 
-                    const dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
-                        0, 0,
-                        outputWidth, 0,
-                        outputWidth, outputHeight,
-                        0, outputHeight
-                    ]);
+                        const widthTop = Math.hypot(scaledCorners.tr.x - scaledCorners.tl.x, scaledCorners.tr.y - scaledCorners.tl.y);
+                        const widthBottom = Math.hypot(scaledCorners.br.x - scaledCorners.bl.x, scaledCorners.br.y - scaledCorners.bl.y);
+                        const heightLeft = Math.hypot(scaledCorners.bl.x - scaledCorners.tl.x, scaledCorners.bl.y - scaledCorners.tl.y);
+                        const heightRight = Math.hypot(scaledCorners.br.x - scaledCorners.tr.x, scaledCorners.br.y - scaledCorners.tr.y);
 
-                    const M = cv.getPerspectiveTransform(srcPts, dstPts);
+                        const outputWidth = Math.round(Math.max(widthTop, widthBottom));
+                        const outputHeight = Math.round(Math.max(heightLeft, heightRight));
 
-                    const warped = new cv.Mat();
-                    const interpolation = interpolationSelect.value === 'lanczos4'
-                        ? cv.INTER_LANCZOS4
-                        : cv.INTER_LINEAR;
-                    cv.warpPerspective(originalImage, warped, M, new cv.Size(outputWidth, outputHeight), interpolation, cv.BORDER_CONSTANT, new cv.Scalar());
+                        const srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                            scaledCorners.tl.x, scaledCorners.tl.y,
+                            scaledCorners.tr.x, scaledCorners.tr.y,
+                            scaledCorners.br.x, scaledCorners.br.y,
+                            scaledCorners.bl.x, scaledCorners.bl.y
+                        ]);
 
-                    const containerRect = mainArea.getBoundingClientRect();
-                    const scaleX = containerRect.width / outputWidth;
-                    const scaleY = containerRect.height / outputHeight;
-                    const scale = Math.min(scaleX, scaleY, 1);
+                        const dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                            0, 0,
+                            outputWidth, 0,
+                            outputWidth, outputHeight,
+                            0, outputHeight
+                        ]);
 
-                    resultCanvas.width = outputWidth * scale;
-                    resultCanvas.height = outputHeight * scale;
+                        const M = cv.getPerspectiveTransform(srcPts, dstPts);
 
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = outputWidth;
-                    tempCanvas.height = outputHeight;
-                    cv.imshow(tempCanvas, warped);
+                        const warped = new cv.Mat();
+                        const interpolation = interpolationSelect.value === 'lanczos4'
+                            ? cv.INTER_LANCZOS4
+                            : cv.INTER_LINEAR;
+                        cv.warpPerspective(src, warped, M, new cv.Size(outputWidth, outputHeight), interpolation, cv.BORDER_CONSTANT, new cv.Scalar());
 
-                    const ctx = resultCanvas.getContext('2d');
-                    ctx.drawImage(tempCanvas, 0, 0, resultCanvas.width, resultCanvas.height);
+                        const containerRect = mainArea.getBoundingClientRect();
+                        const scaleX = containerRect.width / outputWidth;
+                        const scaleY = containerRect.height / outputHeight;
+                        const scale = Math.min(scaleX, scaleY, 1) * 0.9;
 
-                    resultCanvas.fullWidth = outputWidth;
-                    resultCanvas.fullHeight = outputHeight;
-                    resultCanvas.fullData = tempCanvas.toDataURL('image/png');
+                        resultCanvas.width = outputWidth * scale;
+                        resultCanvas.height = outputHeight * scale;
 
-                    resolutionInfo.textContent = `${outputWidth} × ${outputHeight}`;
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = outputWidth;
+                        tempCanvas.height = outputHeight;
+                        cv.imshow(tempCanvas, warped);
 
-                    srcPts.delete();
-                    dstPts.delete();
-                    M.delete();
-                    warped.delete();
+                        const ctx = resultCanvas.getContext('2d');
+                        ctx.drawImage(tempCanvas, 0, 0, resultCanvas.width, resultCanvas.height);
 
-                    hideLoading();
-                    setState('result');
-                    setStatus('Complete');
+                        resultCanvas.fullWidth = outputWidth;
+                        resultCanvas.fullHeight = outputHeight;
+                        resultCanvas.fullData = tempCanvas.toDataURL('image/png');
+
+                        setMeasurement(`${outputWidth} × ${outputHeight} px`);
+
+                        src.delete();
+                        srcPts.delete();
+                        dstPts.delete();
+                        M.delete();
+                        warped.delete();
+
+                        hideLoading();
+                        setState('result');
+                        setStatus('Complete');
+                    };
+
+                    img.onerror = function() {
+                        hideLoading();
+                        alert('Failed to load original image');
+                    };
+
+                    img.src = originalImageData;
                 } catch (err) {
                     hideLoading();
                     alert('Transform failed: ' + err.message);
@@ -1483,7 +1358,7 @@
 
         async function shareImage() {
             if (!navigator.share) {
-                alert('Sharing not supported on this device');
+                alert('Sharing not supported');
                 return;
             }
 
@@ -1499,19 +1374,19 @@
                 setStatus('Shared');
             } catch (err) {
                 if (err.name !== 'AbortError') {
-                    alert('Could not share: ' + err.message);
+                    alert('Share failed: ' + err.message);
                 }
             }
         }
 
         function resetToIntro() {
             stopCamera();
-            if (originalImage) {
-                originalImage.delete();
-                originalImage = null;
-            }
+            originalImageData = null;
+            originalWidth = 0;
+            originalHeight = 0;
+            previewScale = 1;
             corners = null;
-            resolutionInfo.textContent = '';
+            setMeasurement('');
             setState('intro');
             setStatus('Ready');
         }
@@ -1522,8 +1397,10 @@
         const nativeCameraInput = document.getElementById('nativeCameraInput');
         document.getElementById('nativeCameraBtn').addEventListener('click', () => nativeCameraInput.click());
         fileInput.addEventListener('change', (e) => {
+            console.log('fileInput change event, files:', e.target.files.length);
             if (e.target.files.length > 0) {
                 loadImage(e.target.files[0]);
+                e.target.value = '';
             }
         });
         nativeCameraInput.addEventListener('change', (e) => {
@@ -1537,13 +1414,11 @@
             stopCamera();
             setState('intro');
             setStatus('Ready');
+            setMeasurement('');
         });
         document.getElementById('applyBtn').addEventListener('click', applyPerspectiveTransform);
         document.getElementById('retakeBtn').addEventListener('click', () => {
-            if (originalImage) {
-                originalImage.delete();
-                originalImage = null;
-            }
+            originalImageData = null;
             startCamera();
         });
         document.getElementById('saveBtn').addEventListener('click', saveImage);
@@ -1551,12 +1426,23 @@
         document.getElementById('newScanBtn').addEventListener('click', resetToIntro);
 
         window.addEventListener('resize', () => {
-            if (state === 'adjust' && originalImage) {
-                drawPreview();
+            if (state === 'adjust' && corners) {
+                const img = new Image();
+                img.onload = function() {
+                    const processCanvas = document.createElement('canvas');
+                    const w = Math.round(originalWidth * previewScale);
+                    const h = Math.round(originalHeight * previewScale);
+                    processCanvas.width = w;
+                    processCanvas.height = h;
+                    const ctx = processCanvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    drawPreview(processCanvas);
+                };
+                img.src = originalImageData;
             }
         });
 
-        // Pinch-to-zoom for result view
+        // Pinch-to-zoom for result
         let zoomLevel = 1;
         let panX = 0, panY = 0;
         let lastTouchDist = 0;
@@ -1575,9 +1461,10 @@
         }
 
         function getTouchDistance(touches) {
-            const dx = touches[0].clientX - touches[1].clientX;
-            const dy = touches[0].clientY - touches[1].clientY;
-            return Math.hypot(dx, dy);
+            return Math.hypot(
+                touches[0].clientX - touches[1].clientX,
+                touches[0].clientY - touches[1].clientY
+            );
         }
 
         function getTouchCenter(touches) {
@@ -1621,12 +1508,8 @@
         }, { passive: false });
 
         resultCanvas.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) {
-                isPinching = false;
-            }
-            if (zoomLevel <= 1) {
-                resetZoom();
-            }
+            if (e.touches.length < 2) isPinching = false;
+            if (zoomLevel <= 1) resetZoom();
         });
 
         let lastTap = 0;
