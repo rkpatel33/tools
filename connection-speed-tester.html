@@ -199,8 +199,8 @@
         .info-text {
             font-size: 12px;
             color: #a3a3a3;
-            text-align: center;
-            margin-top: 16px;
+            margin-top: -12px;
+            margin-bottom: 20px;
         }
 
         @media (max-width: 600px) {
@@ -217,6 +217,7 @@
 <body>
     <div class="container">
         <h1>Connection Speed Tester</h1>
+        <p class="info-text">Measures HTTP round-trip time to google.com/favicon.ico every second</p>
 
         <div id="disconnectedBanner" class="disconnected-banner">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -266,8 +267,6 @@
                 <div class="stat-label">Success</div>
             </div>
         </div>
-
-        <p class="info-text">Measures HTTP round-trip time to google.com/favicon.ico every second</p>
     </div>
 
     <script>
