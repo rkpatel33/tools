@@ -114,6 +114,20 @@
 
         .chart-container {
             margin-top: 16px;
+            min-height: 180px;
+            position: relative;
+        }
+
+        .chart-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a3a3a3;
+            font-size: 14px;
+            background: linear-gradient(to bottom, #fafafa 0%, #f5f5f5 100%);
+            border-radius: 4px;
         }
 
         .stats {
@@ -136,6 +150,12 @@
             font-size: 12px;
             color: #666666;
             margin-top: 4px;
+        }
+
+        .stat-unit {
+            font-size: 14px;
+            font-weight: 400;
+            color: #666666;
         }
 
         .u-wrap {
@@ -173,7 +193,11 @@
                     Start
                 </button>
             </div>
-            <div id="chart" class="chart-container"></div>
+            <div id="chart" class="chart-container">
+                <div id="chartPlaceholder" class="chart-placeholder">
+                    Click Start to begin monitoring
+                </div>
+            </div>
         </div>
 
         <div class="panel stats">
@@ -190,8 +214,8 @@
                 <div class="stat-label">Avg (ms)</div>
             </div>
             <div class="stat">
-                <div id="successRate" class="stat-value">--</div>
-                <div class="stat-label">Success %</div>
+                <div id="successRate" class="stat-value">--<span class="stat-unit">%</span></div>
+                <div class="stat-label">Success</div>
             </div>
         </div>
     </div>
@@ -219,11 +243,12 @@
         const avgEl = document.getElementById('avgLatency');
         const successEl = document.getElementById('successRate');
         const chartEl = document.getElementById('chart');
+        const chartPlaceholder = document.getElementById('chartPlaceholder');
 
         function getLatencyClass(ms) {
             if (ms === null) return 'offline';
-            if (ms < 200) return 'good';
-            if (ms < 500) return 'medium';
+            if (ms < 100) return 'good';
+            if (ms < 300) return 'medium';
             return 'slow';
         }
 
@@ -245,7 +270,8 @@
                 maxEl.textContent = Math.round(Math.max(...validLatencies));
                 avgEl.textContent = Math.round(validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length);
             }
-            successEl.textContent = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : '--';
+            const successPct = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : '--';
+            successEl.innerHTML = successPct + '<span class="stat-unit">%</span>';
         }
 
         async function ping() {
@@ -271,52 +297,60 @@
             }
         }
 
-        function initChart() {
+        function createChart() {
+            // Initialize with placeholder data that has at least one valid point
+            const now = Date.now() / 1000;
+            timestamps = [];
+            latencies = [];
+
+            for (let i = 0; i < MAX_POINTS; i++) {
+                timestamps.push(now - (MAX_POINTS - i));
+                latencies.push(null);
+            }
+
             const opts = {
-                width: chartEl.clientWidth,
-                height: 200,
+                width: chartEl.clientWidth || 700,
+                height: 180,
                 series: [
                     {},
                     {
+                        label: 'Latency',
                         stroke: '#0070f3',
                         width: 2,
-                        fill: 'rgba(0, 112, 243, 0.1)',
-                        points: { show: false }
+                        fill: 'rgba(0, 112, 243, 0.08)',
+                        points: { show: false },
+                        spanGaps: false
                     }
                 ],
                 scales: {
                     x: { time: false },
-                    y: { auto: true, range: [0, null] }
+                    y: {
+                        auto: false,
+                        range: [0, 200]
+                    }
                 },
                 axes: [
                     {
-                        show: true,
-                        stroke: '#e5e5e5',
-                        grid: { stroke: '#f7f7f7', width: 1 },
-                        ticks: { show: false },
-                        values: (u, vals) => vals.map(v => '')
+                        show: false
                     },
                     {
-                        stroke: '#e5e5e5',
-                        grid: { stroke: '#f7f7f7', width: 1 },
-                        size: 50,
-                        values: (u, vals) => vals.map(v => v + ' ms')
+                        stroke: '#a3a3a3',
+                        grid: { stroke: '#f0f0f0', width: 1 },
+                        size: 55,
+                        gap: 5,
+                        values: (u, vals) => vals.map(v => Math.round(v) + ' ms')
                     }
                 ],
-                cursor: {
-                    show: true,
-                    points: { show: true }
-                }
+                legend: { show: false },
+                cursor: { show: false }
             };
-
-            const now = Date.now() / 1000;
-            timestamps = Array(MAX_POINTS).fill(0).map((_, i) => now - (MAX_POINTS - i));
-            latencies = Array(MAX_POINTS).fill(null);
 
             uplot = new uPlot(opts, [timestamps, latencies], chartEl);
         }
 
         function updateChart(latency) {
+            if (!uplot) return;
+
             const now = Date.now() / 1000;
 
             timestamps.push(now);
@@ -325,6 +359,23 @@
             if (timestamps.length > MAX_POINTS) {
                 timestamps.shift();
                 latencies.shift();
+            }
+
+            // Auto-scale Y axis based on data with nice round numbers
+            const validLatencies = latencies.filter(l => l !== null);
+            if (validLatencies.length > 0) {
+                const maxLatency = Math.max(...validLatencies);
+                // Round up to nice values: 50, 100, 150, 200, 300, 500, etc.
+                let yMax;
+                if (maxLatency <= 50) yMax = 75;
+                else if (maxLatency <= 100) yMax = 125;
+                else if (maxLatency <= 150) yMax = 175;
+                else if (maxLatency <= 200) yMax = 250;
+                else if (maxLatency <= 300) yMax = 400;
+                else if (maxLatency <= 500) yMax = 600;
+                else yMax = Math.ceil(maxLatency / 500) * 500 + 100;
+
+                uplot.setScale('y', { min: 0, max: yMax });
             }
 
             uplot.setData([timestamps, latencies]);
@@ -350,16 +401,27 @@
             toggleBtn.classList.add('stop');
 
             // Reset stats
-            timestamps = [];
-            latencies = [];
             successCount = 0;
             totalCount = 0;
+            minEl.textContent = '--';
+            maxEl.textContent = '--';
+            avgEl.textContent = '--';
+            successEl.innerHTML = '--<span class="stat-unit">%</span>';
 
+            // Destroy existing chart
             if (uplot) {
                 uplot.destroy();
+                uplot = null;
             }
-            initChart();
 
+            // Hide placeholder and clear chart
+            if (chartPlaceholder) chartPlaceholder.style.display = 'none';
+            chartEl.querySelectorAll('.u-wrap').forEach(el => el.remove());
+
+            // Create fresh chart
+            createChart();
+
+            // Start pinging
             runPing();
             intervalId = setInterval(runPing, PING_INTERVAL);
         }
@@ -400,9 +462,6 @@
                 uplot.setSize({ width: chartEl.clientWidth, height: 200 });
             }
         });
-
-        // Initialize empty chart
-        initChart();
     </script>
 </body>
 </html>
