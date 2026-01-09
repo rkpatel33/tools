@@ -574,19 +574,37 @@
             localStorage.setItem('docscanner-interpolation', interpolationSelect.value);
         });
 
-        // OpenCV ready
+        // OpenCV ready - multiple fallback methods
         window.onOpenCvReady = function() {
+            console.log('OpenCV ready via onOpenCvReady');
             cvReady = true;
             setStatus('Ready');
         };
 
-        document.getElementById('opencvScript').onload = function() {
+        const opencvScript = document.getElementById('opencvScript');
+
+        opencvScript.onload = function() {
+            console.log('OpenCV script loaded');
             if (typeof cv !== 'undefined') {
-                cv.onRuntimeInitialized = () => {
+                if (cv.onRuntimeInitialized) {
+                    cv.onRuntimeInitialized = () => {
+                        console.log('OpenCV ready via onRuntimeInitialized');
+                        cvReady = true;
+                        setStatus('Ready');
+                    };
+                }
+                // Check if already initialized
+                if (cv.Mat) {
+                    console.log('OpenCV already initialized');
                     cvReady = true;
                     setStatus('Ready');
-                };
+                }
             }
+        };
+
+        opencvScript.onerror = function(e) {
+            console.error('OpenCV script failed to load:', e);
+            setStatus('CV Error');
         };
 
         function setState(newState) {
@@ -958,18 +976,24 @@
 
             if (!cvReady) {
                 console.log('Waiting for OpenCV...');
+                showLoading('Loading OpenCV...');
                 let attempts = 0;
-                while (!cvReady && attempts < 50) {
+                // Wait up to 30 seconds (300 * 100ms) for OpenCV on slow mobile connections
+                while (!cvReady && attempts < 300) {
                     await new Promise(r => setTimeout(r, 100));
                     attempts++;
+                    if (attempts % 50 === 0) {
+                        console.log('Still waiting for OpenCV...', attempts * 100, 'ms');
+                    }
                 }
                 if (!cvReady) {
-                    console.error('OpenCV failed to load after 5 seconds');
+                    console.error('OpenCV failed to load after 30 seconds');
                     hideLoading();
                     alert('OpenCV failed to load. Please refresh the page.');
                     setState('intro');
                     return;
                 }
+                showLoading('Detecting...');
             }
             console.log('OpenCV ready, processing...');
 
