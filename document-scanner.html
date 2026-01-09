@@ -607,6 +607,14 @@
             setStatus('CV Error');
         };
 
+        // Also catch any script execution errors
+        window.addEventListener('error', function(e) {
+            if (e.filename && e.filename.includes('opencv')) {
+                console.error('OpenCV execution error:', e.message, e.filename, e.lineno);
+                setStatus('CV Error');
+            }
+        });
+
         function setState(newState) {
             state = newState;
             body.setAttribute('data-state', state);
