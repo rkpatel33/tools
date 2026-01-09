@@ -522,9 +522,6 @@
         <div class="loading-text" id="loadingText">Processing...</div>
     </div>
 
-    <!-- OpenCV.js -->
-    <script async src="https://docs.opencv.org/4.9.0/opencv.js" id="opencvScript"></script>
-
     <script>
         // Constants
         const MAX_PROCESS_SIZE = 1500;
@@ -581,40 +578,61 @@
             localStorage.setItem('docscanner-interpolation', interpolationSelect.value);
         });
 
-        // OpenCV ready - multiple fallback methods
+        // CRITICAL: Set up Module.onRuntimeInitialized BEFORE loading OpenCV script
+        // This is the only reliable callback on iOS Safari
+        window.Module = {
+            onRuntimeInitialized: function() {
+                console.log('OpenCV ready via Module.onRuntimeInitialized');
+                cvReady = true;
+                setStatus('Ready');
+            }
+        };
+
+        // Also set cv callback as fallback for desktop browsers
+        window.cv = {
+            onRuntimeInitialized: function() {
+                if (cvReady) return;
+                console.log('OpenCV ready via cv.onRuntimeInitialized');
+                cvReady = true;
+                setStatus('Ready');
+            }
+        };
+
+        // Global callback fallback
         window.onOpenCvReady = function() {
+            if (cvReady) return;
             console.log('OpenCV ready via onOpenCvReady');
             cvReady = true;
             setStatus('Ready');
         };
 
-        const opencvScript = document.getElementById('opencvScript');
+        // NOW dynamically load OpenCV.js (after callbacks are set up)
+        (function loadOpenCV() {
+            const script = document.createElement('script');
+            script.src = 'https://docs.opencv.org/4.9.0/opencv.js';
+            script.async = true;
 
-        opencvScript.onload = function() {
-            console.log('OpenCV script loaded');
-            if (typeof cv !== 'undefined') {
-                if (cv.onRuntimeInitialized) {
-                    cv.onRuntimeInitialized = () => {
-                        console.log('OpenCV ready via onRuntimeInitialized');
+            script.onload = function() {
+                console.log('OpenCV script loaded');
+                // Check if already initialized (fallback)
+                if (typeof cv !== 'undefined' && cv.Mat) {
+                    if (!cvReady) {
+                        console.log('OpenCV already initialized on load');
                         cvReady = true;
                         setStatus('Ready');
-                    };
+                    }
                 }
-                // Check if already initialized
-                if (cv.Mat) {
-                    console.log('OpenCV already initialized');
-                    cvReady = true;
-                    setStatus('Ready');
-                }
-            }
-        };
+            };
 
-        opencvScript.onerror = function(e) {
-            console.error('OpenCV script failed to load:', e);
-            setStatus('CV Error');
-        };
+            script.onerror = function(e) {
+                console.error('OpenCV script failed to load:', e);
+                setStatus('CV Error');
+            };
 
-        // Also catch any script execution errors
+            document.head.appendChild(script);
+        })();
+
+        // Catch any script execution errors
         window.addEventListener('error', function(e) {
             if (e.filename && e.filename.includes('opencv')) {
                 console.error('OpenCV execution error:', e.message, e.filename, e.lineno);
