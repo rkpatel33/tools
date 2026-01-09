@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OpenCV Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: monospace; padding: 20px; background: #111; color: #0f0; }
+        #log { white-space: pre-wrap; font-size: 12px; margin-bottom: 20px; }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .info { color: #0ff; }
+        #testImage { max-width: 200px; margin: 10px 0; }
+        #outputCanvas { max-width: 200px; margin: 10px 0; border: 1px solid #0f0; }
+    </style>
+</head>
+<body>
+    <h2>OpenCV.js Loading Test</h2>
+    <div id="log"></div>
+    
+    <h3>Test Image</h3>
+    <img id="testImage" crossorigin="anonymous" src="https://picsum.photos/400/300" alt="Test">
+    <canvas id="outputCanvas"></canvas>
+    
+    <script>
+        const log = document.getElementById('log');
+        function addLog(msg, type = 'info') {
+            const line = document.createElement('div');
+            line.className = type;
+            line.textContent = `[${new Date().toISOString().slice(11,23)}] ${msg}`;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+            console.log(msg);
+        }
+        
+        addLog('Page loaded, attempting to load OpenCV.js...');
+        addLog('Source: docs.opencv.org/4.9.0/opencv.js');
+        
+        // Track loading time
+        const startTime = performance.now();
+        let cvReady = false;
+        
+        // Global callback
+        window.onOpenCvReady = function() {
+            if (cvReady) return;
+            cvReady = true;
+            const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+            addLog(`SUCCESS: OpenCV ready via onOpenCvReady (${elapsed}s)`, 'success');
+            testOpenCV();
+        };
+        
+        // Create script element
+        const script = document.createElement('script');
+        script.src = 'https://docs.opencv.org/4.9.0/opencv.js';
+        script.async = true;
+        
+        script.onload = function() {
+            const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+            addLog(`Script onload fired (${elapsed}s)`);
+            
+            if (typeof cv !== 'undefined') {
+                addLog('cv object exists');
+                if (cv.Mat) {
+                    if (!cvReady) {
+                        cvReady = true;
+                        addLog('cv.Mat exists - already initialized', 'success');
+                        testOpenCV();
+                    }
+                } else if (cv.onRuntimeInitialized) {
+                    addLog('Waiting for cv.onRuntimeInitialized...');
+                    cv.onRuntimeInitialized = function() {
+                        if (cvReady) return;
+                        cvReady = true;
+                        const elapsed2 = ((performance.now() - startTime) / 1000).toFixed(2);
+                        addLog(`cv.onRuntimeInitialized fired (${elapsed2}s)`, 'success');
+                        testOpenCV();
+                    };
+                } else {
+                    addLog('cv exists but no Mat or onRuntimeInitialized', 'error');
+                }
+            } else {
+                addLog('cv is undefined after script load', 'error');
+            }
+        };
+        
+        script.onerror = function(e) {
+            const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+            addLog(`FAILED: Script error (${elapsed}s)`, 'error');
+            addLog(`Error type: ${e.type}`, 'error');
+        };
+        
+        // Also catch global errors
+        window.addEventListener('error', function(e) {
+            addLog(`Global error: ${e.message}`, 'error');
+            if (e.filename) {
+                addLog(`File: ${e.filename}:${e.lineno}`, 'error');
+            }
+        });
+        
+        addLog('Appending script to document...');
+        document.head.appendChild(script);
+        addLog('Script element added, waiting for load...');
+        
+        // Progress updates
+        let progressCount = 0;
+        const progressInterval = setInterval(function() {
+            if (cvReady) {
+                clearInterval(progressInterval);
+                return;
+            }
+            progressCount++;
+            const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+            if (typeof cv === 'undefined') {
+                addLog(`Waiting... ${elapsed}s (cv undefined, downloading script)`);
+            } else if (!cv.Mat) {
+                addLog(`Waiting... ${elapsed}s (cv exists, initializing WASM)`);
+            }
+            if (progressCount > 60) {
+                addLog('TIMEOUT: 60 seconds exceeded', 'error');
+                clearInterval(progressInterval);
+            }
+        }, 2000);
+        
+        function testOpenCV() {
+            try {
+                addLog('Testing cv.Mat creation...');
+                const mat = new cv.Mat();
+                addLog(`Mat created: ${mat.rows}x${mat.cols}`, 'success');
+                mat.delete();
+                addLog('Mat deleted successfully', 'success');
+                
+                // Try to process the image
+                const img = document.getElementById('testImage');
+                if (img.complete) {
+                    processImage(img);
+                } else {
+                    img.onload = () => processImage(img);
+                }
+                
+                addLog('=== OpenCV IS WORKING ===', 'success');
+            } catch(e) {
+                addLog(`Test failed: ${e.message}`, 'error');
+            }
+        }
+        
+        function processImage(img) {
+            try {
+                addLog('Processing test image...');
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                
+                addLog(`Image size: ${canvas.width}x${canvas.height}`);
+                
+                const src = cv.imread(canvas);
+                addLog(`cv.imread done: ${src.rows}x${src.cols}`);
+                
+                // Convert to grayscale
+                const gray = new cv.Mat();
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                addLog('Converted to grayscale');
+                
+                // Apply Canny edge detection
+                const edges = new cv.Mat();
+                cv.Canny(gray, edges, 50, 150);
+                addLog('Applied Canny edge detection');
+                
+                // Show result
+                const outputCanvas = document.getElementById('outputCanvas');
+                cv.imshow(outputCanvas, edges);
+                addLog('Output displayed on canvas', 'success');
+                
+                // Cleanup
+                src.delete();
+                gray.delete();
+                edges.delete();
+                addLog('=== IMAGE PROCESSING COMPLETE ===', 'success');
+            } catch(e) {
+                addLog(`Image processing failed: ${e.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
