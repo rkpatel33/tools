@@ -466,7 +466,7 @@
         </div>
 
         <div class="footer">
-            <div class="footer-text">2MB download from speed.cloudflare.com · 30s interval</div>
+            <div class="footer-text">2MB download from speed.cloudflare.com · 5s interval</div>
         </div>
     </div>
     </div>
@@ -481,9 +481,9 @@
         // Speed test config
         const SPEED_TEST_URL = 'https://speed.cloudflare.com/__down';
         const SPEED_FILE_SIZE = 2_000_000; // 2MB
-        const SPEED_INTERVAL = 30000; // 30 seconds
-        const SPEED_TIMEOUT = 30000;
-        const MAX_SPEED_POINTS = 40; // 20 minutes at 30s intervals
+        const SPEED_INTERVAL = 5000; // 5 seconds
+        const SPEED_TIMEOUT = 15000;
+        const MAX_SPEED_POINTS = 120; // 10 minutes at 5s intervals
 
         // Latency state
         let running = false;
@@ -587,10 +587,22 @@
         }
 
         function updateSpeedUI(speed) {
+            // Handle rate limiting
+            if (speed === 'rate_limited') {
+                speedValueEl.textContent = '—';
+                speedValueEl.className = 'latency-value warn';
+                speedIndicator.className = 'status-indicator warn';
+                speedStatusText.textContent = 'Rate Limited';
+                speedAlertBanner.querySelector('span').textContent = 'Rate limited by Cloudflare — waiting...';
+                speedAlertBanner.classList.add('show');
+                return;
+            }
+
             if (speed === null) {
                 speedConsecutiveFailures++;
             } else {
                 speedConsecutiveFailures = 0;
+                speedAlertBanner.querySelector('span').textContent = 'Download test failed — check connection';
             }
 
             const isDisconnected = speedConsecutiveFailures >= 2;
@@ -617,15 +629,18 @@
                 speedStatusText.textContent = 'Timeout';
             }
 
-            // Statistics
-            const validSpeeds = speeds.filter(s => s !== null);
+            // Statistics (only count numeric values)
+            const validSpeeds = speeds.filter(s => s !== null && s !== 'rate_limited' && typeof s === 'number');
             if (validSpeeds.length > 0) {
                 minSpeedEl.textContent = Math.min(...validSpeeds).toFixed(1);
                 maxSpeedEl.textContent = Math.max(...validSpeeds).toFixed(1);
                 avgSpeedEl.textContent = (validSpeeds.reduce((a, b) => a + b, 0) / validSpeeds.length).toFixed(1);
-                lastSpeedEl.textContent = speed !== null ? speed.toFixed(1) : '—';
+                lastSpeedEl.textContent = (typeof speed === 'number') ? speed.toFixed(1) : '—';
             }
         }
+
+        // Track rate limit state
+        let isRateLimited = false;
 
         async function measureSpeed() {
             const url = `${SPEED_TEST_URL}?bytes=${SPEED_FILE_SIZE}&t=${Date.now()}`;
@@ -640,8 +655,21 @@
                     cache: 'no-store',
                     signal: controller.signal
                 });
-                await response.arrayBuffer();
+
                 clearTimeout(timeoutId);
+
+                // Handle rate limiting
+                if (response.status === 429) {
+                    isRateLimited = true;
+                    return 'rate_limited';
+                }
+
+                if (!response.ok) {
+                    return null;
+                }
+
+                isRateLimited = false;
+                await response.arrayBuffer();
 
                 const durationSeconds = (performance.now() - start) / 1000;
                 const mbps = (SPEED_FILE_SIZE * 8) / (durationSeconds * 1_000_000);
@@ -706,14 +734,16 @@
 
             const now = Date.now() / 1000;
             speedTimestamps.push(now);
-            speeds.push(speed);
+            // Store null for rate_limited or non-numeric values
+            const chartValue = (typeof speed === 'number') ? speed : null;
+            speeds.push(chartValue);
 
             if (speedTimestamps.length > MAX_SPEED_POINTS) {
                 speedTimestamps.shift();
                 speeds.shift();
             }
 
-            const validSpeeds = speeds.filter(s => s !== null);
+            const validSpeeds = speeds.filter(s => s !== null && typeof s === 'number');
             if (validSpeeds.length > 0) {
                 const maxSpeed = Math.max(...validSpeeds);
                 let yMax;
