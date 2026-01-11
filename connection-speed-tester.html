@@ -25,6 +25,7 @@
             --accent-good: #2d8a4e;
             --accent-warn: #c77800;
             --accent-error: #c73a3a;
+            --accent-blue: #2563eb;
             --font-mono: 'IBM Plex Mono', 'SF Mono', monospace;
             --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
         }
@@ -46,11 +47,19 @@
             padding: 24px;
         }
 
+        .dashboard {
+            display: flex;
+            gap: 24px;
+            width: 100%;
+            max-width: 1320px;
+        }
+
         .instrument {
             background: var(--surface);
             width: 100%;
             max-width: 640px;
             border: 1px solid var(--border);
+            flex: 1;
         }
 
         /* Header */
@@ -298,7 +307,24 @@
             letter-spacing: 0.03em;
         }
 
+        /* Speed-specific colors */
+        .speed-value.good { color: var(--accent-good); }
+        .speed-value.warn { color: var(--accent-warn); }
+        .speed-value.error { color: var(--accent-error); }
+        .speed-value.offline { color: var(--text-tertiary); }
+
         /* Responsive */
+        @media (max-width: 1100px) {
+            .dashboard {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .instrument {
+                max-width: 640px;
+            }
+        }
+
         @media (max-width: 540px) {
             .latency-value {
                 font-size: 56px;
@@ -324,6 +350,7 @@
     </style>
 </head>
 <body>
+    <div class="dashboard">
     <div class="instrument">
         <div class="header">
             <span class="title">Network Latency Monitor</span>
@@ -381,16 +408,84 @@
         </div>
 
         <div class="footer">
-            <div class="footer-text">HTTP round-trip measurement to google.com/favicon.ico · 1s interval</div>
+            <div class="footer-text">HTTP round-trip to google.com/favicon.ico · 1s interval</div>
         </div>
     </div>
 
+    <!-- Download Speed Panel -->
+    <div class="instrument">
+        <div class="header">
+            <span class="title">Download Speed Monitor</span>
+            <div style="width: 32px;"></div>
+        </div>
+
+        <div id="speedAlertBanner" class="alert-banner">
+            <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke-width="1.5"/>
+                <line x1="12" y1="8" x2="12" y2="12" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+            <span>Download test failed — check connection</span>
+        </div>
+
+        <div class="display-section">
+            <div id="speedValue" class="latency-value offline">—</div>
+            <div class="latency-unit">Mbps</div>
+            <div class="status-line">
+                <div id="speedIndicator" class="status-indicator"></div>
+                <span id="speedStatusText" class="status-text">Idle</span>
+            </div>
+        </div>
+
+        <div class="chart-section">
+            <div class="chart-label">20-Minute History (30s intervals)</div>
+            <div id="speedChart" class="chart-container">
+                <div id="speedChartPlaceholder" class="chart-placeholder">
+                    Press start to begin measurement
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-section">
+            <div class="stat">
+                <div id="minSpeed" class="stat-value">—</div>
+                <div class="stat-label">Minimum</div>
+            </div>
+            <div class="stat">
+                <div id="maxSpeed" class="stat-value">—</div>
+                <div class="stat-label">Maximum</div>
+            </div>
+            <div class="stat">
+                <div id="avgSpeed" class="stat-value">—</div>
+                <div class="stat-label">Average</div>
+            </div>
+            <div class="stat">
+                <div id="lastSpeed" class="stat-value">—</div>
+                <div class="stat-label">Last Test</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-text">2MB download from speed.cloudflare.com · 30s interval</div>
+        </div>
+    </div>
+    </div>
+
     <script>
+        // Latency test config
         const PING_URL = 'https://www.google.com/favicon.ico';
         const PING_INTERVAL = 1000;
         const TIMEOUT = 5000;
         const MAX_POINTS = 120;
 
+        // Speed test config
+        const SPEED_TEST_URL = 'https://speed.cloudflare.com/__down';
+        const SPEED_FILE_SIZE = 2_000_000; // 2MB
+        const SPEED_INTERVAL = 30000; // 30 seconds
+        const SPEED_TIMEOUT = 30000;
+        const MAX_SPEED_POINTS = 40; // 20 minutes at 30s intervals
+
+        // Latency state
         let running = false;
         let intervalId = null;
         let uplot = null;
@@ -401,6 +496,16 @@
         let consecutiveFailures = 0;
         const DISCONNECT_THRESHOLD = 3;
 
+        // Speed test state
+        let speedIntervalId = null;
+        let speedUplot = null;
+        let speedTimestamps = [];
+        let speeds = [];
+        let speedSuccessCount = 0;
+        let speedTotalCount = 0;
+        let speedConsecutiveFailures = 0;
+
+        // Latency DOM elements
         const toggleBtn = document.getElementById('toggleBtn');
         const latencyValue = document.getElementById('latencyValue');
         const statusIndicator = document.getElementById('statusIndicator');
@@ -412,6 +517,18 @@
         const chartEl = document.getElementById('chart');
         const chartPlaceholder = document.getElementById('chartPlaceholder');
         const alertBanner = document.getElementById('alertBanner');
+
+        // Speed test DOM elements
+        const speedValueEl = document.getElementById('speedValue');
+        const speedIndicator = document.getElementById('speedIndicator');
+        const speedStatusText = document.getElementById('speedStatusText');
+        const minSpeedEl = document.getElementById('minSpeed');
+        const maxSpeedEl = document.getElementById('maxSpeed');
+        const avgSpeedEl = document.getElementById('avgSpeed');
+        const lastSpeedEl = document.getElementById('lastSpeed');
+        const speedChartEl = document.getElementById('speedChart');
+        const speedChartPlaceholder = document.getElementById('speedChartPlaceholder');
+        const speedAlertBanner = document.getElementById('speedAlertBanner');
 
         function getLatencyClass(ms) {
             if (ms === null) return 'offline';
@@ -459,6 +576,164 @@
                 avgEl.textContent = Math.round(validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length);
             }
             successEl.textContent = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : '—';
+        }
+
+        // Speed test thresholds
+        function getSpeedClass(mbps) {
+            if (mbps === null) return 'offline';
+            if (mbps >= 25) return 'good';
+            if (mbps >= 10) return 'warn';
+            return 'error';
+        }
+
+        function updateSpeedUI(speed) {
+            if (speed === null) {
+                speedConsecutiveFailures++;
+            } else {
+                speedConsecutiveFailures = 0;
+            }
+
+            const isDisconnected = speedConsecutiveFailures >= 2;
+            const cls = isDisconnected ? 'error' : getSpeedClass(speed);
+
+            // Alert banner
+            speedAlertBanner.classList.toggle('show', isDisconnected);
+
+            // Primary display
+            speedValueEl.textContent = speed !== null ? speed.toFixed(1) : '—';
+            speedValueEl.className = `latency-value ${isDisconnected ? 'offline' : cls}`;
+
+            // Status indicator
+            speedIndicator.className = `status-indicator ${cls}`;
+
+            // Status text
+            if (isDisconnected) {
+                speedStatusText.textContent = 'Failed';
+            } else if (speed !== null) {
+                if (cls === 'good') speedStatusText.textContent = 'Fast';
+                else if (cls === 'warn') speedStatusText.textContent = 'Moderate';
+                else speedStatusText.textContent = 'Slow';
+            } else {
+                speedStatusText.textContent = 'Timeout';
+            }
+
+            // Statistics
+            const validSpeeds = speeds.filter(s => s !== null);
+            if (validSpeeds.length > 0) {
+                minSpeedEl.textContent = Math.min(...validSpeeds).toFixed(1);
+                maxSpeedEl.textContent = Math.max(...validSpeeds).toFixed(1);
+                avgSpeedEl.textContent = (validSpeeds.reduce((a, b) => a + b, 0) / validSpeeds.length).toFixed(1);
+                lastSpeedEl.textContent = speed !== null ? speed.toFixed(1) : '—';
+            }
+        }
+
+        async function measureSpeed() {
+            const url = `${SPEED_TEST_URL}?bytes=${SPEED_FILE_SIZE}&t=${Date.now()}`;
+            speedTotalCount++;
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), SPEED_TIMEOUT);
+
+                const start = performance.now();
+                const response = await fetch(url, {
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+                await response.arrayBuffer();
+                clearTimeout(timeoutId);
+
+                const durationSeconds = (performance.now() - start) / 1000;
+                const mbps = (SPEED_FILE_SIZE * 8) / (durationSeconds * 1_000_000);
+                speedSuccessCount++;
+                return mbps;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function createSpeedChart() {
+            const now = Date.now() / 1000;
+            speedTimestamps = [];
+            speeds = [];
+
+            for (let i = 0; i < MAX_SPEED_POINTS; i++) {
+                speedTimestamps.push(now - (MAX_SPEED_POINTS - i) * 30);
+                speeds.push(null);
+            }
+
+            const opts = {
+                width: speedChartEl.clientWidth || 580,
+                height: 140,
+                series: [
+                    {},
+                    {
+                        label: 'Speed',
+                        stroke: '#2563eb',
+                        width: 1.5,
+                        fill: 'rgba(37, 99, 235, 0.08)',
+                        points: { show: false },
+                        spanGaps: false
+                    }
+                ],
+                scales: {
+                    x: { time: false },
+                    y: {
+                        auto: false,
+                        range: [0, 100]
+                    }
+                },
+                axes: [
+                    { show: false },
+                    {
+                        stroke: '#999999',
+                        font: '10px IBM Plex Mono',
+                        grid: { stroke: '#e8e8e6', width: 1 },
+                        size: 50,
+                        gap: 8,
+                        values: (u, vals) => vals.map(v => v + '')
+                    }
+                ],
+                legend: { show: false },
+                cursor: { show: false }
+            };
+
+            speedUplot = new uPlot(opts, [speedTimestamps, speeds], speedChartEl);
+        }
+
+        function updateSpeedChart(speed) {
+            if (!speedUplot) return;
+
+            const now = Date.now() / 1000;
+            speedTimestamps.push(now);
+            speeds.push(speed);
+
+            if (speedTimestamps.length > MAX_SPEED_POINTS) {
+                speedTimestamps.shift();
+                speeds.shift();
+            }
+
+            const validSpeeds = speeds.filter(s => s !== null);
+            if (validSpeeds.length > 0) {
+                const maxSpeed = Math.max(...validSpeeds);
+                let yMax;
+                if (maxSpeed <= 25) yMax = 50;
+                else if (maxSpeed <= 50) yMax = 75;
+                else if (maxSpeed <= 100) yMax = 150;
+                else if (maxSpeed <= 200) yMax = 300;
+                else if (maxSpeed <= 500) yMax = 750;
+                else yMax = Math.ceil(maxSpeed / 500) * 500 + 100;
+
+                speedUplot.setScale('y', { min: 0, max: yMax });
+            }
+
+            speedUplot.setData([speedTimestamps, speeds]);
+        }
+
+        async function runSpeedTest() {
+            const speed = await measureSpeed();
+            updateSpeedChart(speed);
+            updateSpeedUI(speed);
         }
 
         async function ping() {
@@ -581,7 +856,7 @@
             toggleBtn.title = 'Stop measurement';
             toggleBtn.classList.add('active');
 
-            // Reset
+            // Reset latency
             successCount = 0;
             totalCount = 0;
             consecutiveFailures = 0;
@@ -591,6 +866,17 @@
             avgEl.textContent = '—';
             successEl.textContent = '—';
 
+            // Reset speed
+            speedSuccessCount = 0;
+            speedTotalCount = 0;
+            speedConsecutiveFailures = 0;
+            speedAlertBanner.classList.remove('show');
+            minSpeedEl.textContent = '—';
+            maxSpeedEl.textContent = '—';
+            avgSpeedEl.textContent = '—';
+            lastSpeedEl.textContent = '—';
+
+            // Destroy old latency chart
             if (uplot) {
                 uplot.destroy();
                 uplot = null;
@@ -599,9 +885,22 @@
             if (chartPlaceholder) chartPlaceholder.style.display = 'none';
             chartEl.querySelectorAll('.u-wrap').forEach(el => el.remove());
 
+            // Destroy old speed chart
+            if (speedUplot) {
+                speedUplot.destroy();
+                speedUplot = null;
+            }
+
+            if (speedChartPlaceholder) speedChartPlaceholder.style.display = 'none';
+            speedChartEl.querySelectorAll('.u-wrap').forEach(el => el.remove());
+
+            // Create charts and start tests
             createChart();
+            createSpeedChart();
             runPing();
+            runSpeedTest();
             intervalId = setInterval(runPing, PING_INTERVAL);
+            speedIntervalId = setInterval(runSpeedTest, SPEED_INTERVAL);
         }
 
         function stop() {
@@ -616,14 +915,25 @@
             toggleBtn.title = 'Start measurement';
             toggleBtn.classList.remove('active');
 
+            // Stop latency test
             if (intervalId) {
                 clearInterval(intervalId);
                 intervalId = null;
             }
 
+            // Stop speed test
+            if (speedIntervalId) {
+                clearInterval(speedIntervalId);
+                speedIntervalId = null;
+            }
+
             statusIndicator.className = 'status-indicator';
             statusText.textContent = 'Idle';
             alertBanner.classList.remove('show');
+
+            speedIndicator.className = 'status-indicator';
+            speedStatusText.textContent = 'Idle';
+            speedAlertBanner.classList.remove('show');
         }
 
         toggleBtn.addEventListener('click', () => {
@@ -633,6 +943,9 @@
         window.addEventListener('resize', () => {
             if (uplot) {
                 uplot.setSize({ width: chartEl.clientWidth, height: 140 });
+            }
+            if (speedUplot) {
+                speedUplot.setSize({ width: speedChartEl.clientWidth, height: 140 });
             }
         });
     </script>
