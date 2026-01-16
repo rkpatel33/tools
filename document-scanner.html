@@ -409,7 +409,7 @@
         <div class="header">
             <div class="title">Document Scanner</div>
             <div class="status-readout">
-                <span class="version-hash">da63268</span>
+                <span class="version-hash">bb7b383</span>
                 <div class="status-led"></div>
                 <span class="status-text" id="status">Ready</span>
             </div>
@@ -1320,75 +1320,86 @@
 
                     const img = new Image();
                     img.onload = function() {
-                        const origCanvas = document.createElement('canvas');
-                        origCanvas.width = originalWidth;
-                        origCanvas.height = originalHeight;
-                        const origCtx = origCanvas.getContext('2d');
-                        origCtx.drawImage(img, 0, 0);
+                        try {
+                            const origCanvas = document.createElement('canvas');
+                            origCanvas.width = originalWidth;
+                            origCanvas.height = originalHeight;
+                            const origCtx = origCanvas.getContext('2d');
+                            origCtx.drawImage(img, 0, 0);
 
-                        const src = cv.imread(origCanvas);
+                            const src = cv.imread(origCanvas);
 
-                        const widthTop = Math.hypot(scaledCorners.tr.x - scaledCorners.tl.x, scaledCorners.tr.y - scaledCorners.tl.y);
-                        const widthBottom = Math.hypot(scaledCorners.br.x - scaledCorners.bl.x, scaledCorners.br.y - scaledCorners.bl.y);
-                        const heightLeft = Math.hypot(scaledCorners.bl.x - scaledCorners.tl.x, scaledCorners.bl.y - scaledCorners.tl.y);
-                        const heightRight = Math.hypot(scaledCorners.br.x - scaledCorners.tr.x, scaledCorners.br.y - scaledCorners.tr.y);
+                            const widthTop = Math.hypot(scaledCorners.tr.x - scaledCorners.tl.x, scaledCorners.tr.y - scaledCorners.tl.y);
+                            const widthBottom = Math.hypot(scaledCorners.br.x - scaledCorners.bl.x, scaledCorners.br.y - scaledCorners.bl.y);
+                            const heightLeft = Math.hypot(scaledCorners.bl.x - scaledCorners.tl.x, scaledCorners.bl.y - scaledCorners.tl.y);
+                            const heightRight = Math.hypot(scaledCorners.br.x - scaledCorners.tr.x, scaledCorners.br.y - scaledCorners.tr.y);
 
-                        const outputWidth = Math.round(Math.max(widthTop, widthBottom));
-                        const outputHeight = Math.round(Math.max(heightLeft, heightRight));
+                            const outputWidth = Math.round(Math.max(widthTop, widthBottom));
+                            const outputHeight = Math.round(Math.max(heightLeft, heightRight));
 
-                        const srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
-                            scaledCorners.tl.x, scaledCorners.tl.y,
-                            scaledCorners.tr.x, scaledCorners.tr.y,
-                            scaledCorners.br.x, scaledCorners.br.y,
-                            scaledCorners.bl.x, scaledCorners.bl.y
-                        ]);
+                            // Validate output dimensions
+                            if (outputWidth <= 0 || outputHeight <= 0 || !isFinite(outputWidth) || !isFinite(outputHeight)) {
+                                throw new Error(`Invalid output dimensions: ${outputWidth} x ${outputHeight}`);
+                            }
 
-                        const dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
-                            0, 0,
-                            outputWidth, 0,
-                            outputWidth, outputHeight,
-                            0, outputHeight
-                        ]);
+                            const srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                                scaledCorners.tl.x, scaledCorners.tl.y,
+                                scaledCorners.tr.x, scaledCorners.tr.y,
+                                scaledCorners.br.x, scaledCorners.br.y,
+                                scaledCorners.bl.x, scaledCorners.bl.y
+                            ]);
 
-                        const M = cv.getPerspectiveTransform(srcPts, dstPts);
+                            const dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                                0, 0,
+                                outputWidth, 0,
+                                outputWidth, outputHeight,
+                                0, outputHeight
+                            ]);
 
-                        const warped = new cv.Mat();
-                        const interpolation = interpolationSelect.value === 'lanczos4'
-                            ? cv.INTER_LANCZOS4
-                            : cv.INTER_LINEAR;
-                        cv.warpPerspective(src, warped, M, new cv.Size(outputWidth, outputHeight), interpolation, cv.BORDER_CONSTANT, new cv.Scalar());
+                            const M = cv.getPerspectiveTransform(srcPts, dstPts);
 
-                        const containerRect = mainArea.getBoundingClientRect();
-                        const scaleX = containerRect.width / outputWidth;
-                        const scaleY = containerRect.height / outputHeight;
-                        const scale = Math.min(scaleX, scaleY, 1) * 0.9;
+                            const warped = new cv.Mat();
+                            const interpolation = interpolationSelect.value === 'lanczos4'
+                                ? cv.INTER_LANCZOS4
+                                : cv.INTER_LINEAR;
+                            cv.warpPerspective(src, warped, M, new cv.Size(outputWidth, outputHeight), interpolation, cv.BORDER_CONSTANT, new cv.Scalar());
 
-                        resultCanvas.width = outputWidth * scale;
-                        resultCanvas.height = outputHeight * scale;
+                            const containerRect = mainArea.getBoundingClientRect();
+                            const scaleX = containerRect.width / outputWidth;
+                            const scaleY = containerRect.height / outputHeight;
+                            const scale = Math.min(scaleX, scaleY, 1) * 0.9;
 
-                        const tempCanvas = document.createElement('canvas');
-                        tempCanvas.width = outputWidth;
-                        tempCanvas.height = outputHeight;
-                        cv.imshow(tempCanvas, warped);
+                            resultCanvas.width = outputWidth * scale;
+                            resultCanvas.height = outputHeight * scale;
 
-                        const ctx = resultCanvas.getContext('2d');
-                        ctx.drawImage(tempCanvas, 0, 0, resultCanvas.width, resultCanvas.height);
+                            const tempCanvas = document.createElement('canvas');
+                            tempCanvas.width = outputWidth;
+                            tempCanvas.height = outputHeight;
+                            cv.imshow(tempCanvas, warped);
 
-                        resultCanvas.fullWidth = outputWidth;
-                        resultCanvas.fullHeight = outputHeight;
-                        resultCanvas.fullData = tempCanvas.toDataURL('image/png');
+                            const ctx = resultCanvas.getContext('2d');
+                            ctx.drawImage(tempCanvas, 0, 0, resultCanvas.width, resultCanvas.height);
 
-                        setMeasurement(`${outputWidth} × ${outputHeight} px`);
+                            resultCanvas.fullWidth = outputWidth;
+                            resultCanvas.fullHeight = outputHeight;
+                            resultCanvas.fullData = tempCanvas.toDataURL('image/png');
 
-                        src.delete();
-                        srcPts.delete();
-                        dstPts.delete();
-                        M.delete();
-                        warped.delete();
+                            setMeasurement(`${outputWidth} × ${outputHeight} px`);
 
-                        hideLoading();
-                        setState('result');
-                        setStatus('Complete');
+                            src.delete();
+                            srcPts.delete();
+                            dstPts.delete();
+                            M.delete();
+                            warped.delete();
+
+                            hideLoading();
+                            setState('result');
+                            setStatus('Complete');
+                        } catch (innerErr) {
+                            console.error('Transform error in onload:', innerErr);
+                            hideLoading();
+                            alert('Transform failed: ' + innerErr.message);
+                        }
                     };
 
                     img.onerror = function() {
