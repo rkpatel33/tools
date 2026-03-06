@@ -313,6 +313,11 @@
         .speed-value.error { color: var(--accent-error); }
         .speed-value.offline { color: var(--text-tertiary); }
 
+        /* Mobile tab bar - hidden on desktop */
+        .mobile-tabs {
+            display: none;
+        }
+
         /* Responsive */
         @media (max-width: 1100px) {
             .dashboard {
@@ -326,32 +331,172 @@
         }
 
         @media (max-width: 540px) {
-            .latency-value {
-                font-size: 56px;
+            body {
+                padding: 0;
+                align-items: stretch;
             }
 
+            .dashboard {
+                flex-direction: column;
+                gap: 0;
+                height: 100vh;
+                height: 100dvh;
+            }
+
+            /* Mobile tab bar */
+            .mobile-tabs {
+                display: flex;
+                background: var(--surface);
+                border-bottom: 1px solid var(--border);
+                flex-shrink: 0;
+            }
+
+            .mobile-tab {
+                flex: 1;
+                padding: 10px 0;
+                border: none;
+                background: transparent;
+                font-family: var(--font-mono);
+                font-size: 11px;
+                font-weight: 500;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: var(--text-tertiary);
+                cursor: pointer;
+                border-bottom: 2px solid transparent;
+                transition: all 0.15s ease;
+            }
+
+            .mobile-tab.active {
+                color: var(--text-primary);
+                border-bottom-color: var(--text-primary);
+            }
+
+            /* Panels on mobile */
+            .instrument {
+                max-width: none;
+                border: none;
+                flex: 1;
+                display: none;
+                flex-direction: column;
+                min-height: 0;
+            }
+
+            .instrument.mobile-active {
+                display: flex;
+            }
+
+            .header {
+                padding: 10px 16px;
+            }
+
+            .title {
+                font-size: 10px;
+            }
+
+            .control-btn {
+                width: 28px;
+                height: 28px;
+            }
+
+            .control-btn svg {
+                width: 12px;
+                height: 12px;
+            }
+
+            /* Display section compact */
+            .display-section {
+                padding: 12px 16px 8px;
+                flex-shrink: 0;
+            }
+
+            .latency-value {
+                font-size: 48px;
+            }
+
+            .latency-unit {
+                font-size: 12px;
+                margin-top: 2px;
+            }
+
+            .status-line {
+                margin-top: 6px;
+            }
+
+            /* Alert banner compact */
+            .alert-banner {
+                padding: 6px 16px;
+            }
+
+            .alert-banner svg {
+                width: 14px;
+                height: 14px;
+            }
+
+            .alert-banner span {
+                font-size: 10px;
+            }
+
+            /* Chart fills remaining space */
+            .chart-section {
+                padding: 8px 12px;
+                flex: 1;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .chart-label {
+                margin-bottom: 4px;
+                font-size: 9px;
+                flex-shrink: 0;
+            }
+
+            .chart-container {
+                height: auto !important;
+                flex: 1;
+                min-height: 0;
+            }
+
+            /* Stats compact single row */
             .stats-section {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(4, 1fr);
+                flex-shrink: 0;
             }
 
             .stat {
-                border-bottom: 1px solid var(--border);
-            }
-
-            .stat:nth-child(2) {
-                border-right: none;
-            }
-
-            .stat:nth-child(3),
-            .stat:nth-child(4) {
+                padding: 8px 4px;
                 border-bottom: none;
+            }
+
+            .stat-value {
+                font-size: 14px;
+            }
+
+            .stat-label {
+                font-size: 8px;
+                margin-top: 2px;
+            }
+
+            /* Footer compact */
+            .footer {
+                padding: 6px 16px;
+                flex-shrink: 0;
+            }
+
+            .footer-text {
+                font-size: 9px;
             }
         }
     </style>
 </head>
 <body>
     <div class="dashboard">
-    <div class="instrument">
+    <div class="mobile-tabs">
+        <button class="mobile-tab active" data-panel="latency">Latency</button>
+        <button class="mobile-tab" data-panel="speed">Speed</button>
+    </div>
+    <div class="instrument mobile-active" id="latencyPanel">
         <div class="header">
             <span class="title">Network Latency Monitor</span>
             <button id="toggleBtn" class="control-btn" title="Start measurement">
@@ -413,7 +558,7 @@
     </div>
 
     <!-- Download Speed Panel -->
-    <div class="instrument">
+    <div class="instrument" id="speedPanel">
         <div class="header">
             <span class="title">Download Speed Monitor</span>
             <div style="width: 32px;"></div>
@@ -970,12 +1115,65 @@
             running ? stop() : start();
         });
 
-        window.addEventListener('resize', () => {
-            if (uplot) {
-                uplot.setSize({ width: chartEl.clientWidth, height: 140 });
+        // Mobile tab switching
+        const mobileTabs = document.querySelectorAll('.mobile-tab');
+        const latencyPanel = document.getElementById('latencyPanel');
+        const speedPanel = document.getElementById('speedPanel');
+
+        function isMobile() {
+            return window.innerWidth <= 540;
+        }
+
+        function getChartHeight() {
+            if (!isMobile()) return 140;
+            // Dynamically compute chart height from the container
+            const activePanel = document.querySelector('.instrument.mobile-active') || latencyPanel;
+            const container = activePanel.querySelector('.chart-container');
+            return container ? container.clientHeight : 100;
+        }
+
+        function resizeCharts() {
+            const h = getChartHeight();
+            if (uplot && latencyPanel.classList.contains('mobile-active') || !isMobile()) {
+                uplot.setSize({ width: chartEl.clientWidth, height: isMobile() ? h : 140 });
             }
-            if (speedUplot) {
-                speedUplot.setSize({ width: speedChartEl.clientWidth, height: 140 });
+            if (speedUplot && speedPanel.classList.contains('mobile-active') || !isMobile()) {
+                speedUplot.setSize({ width: speedChartEl.clientWidth, height: isMobile() ? h : 140 });
+            }
+        }
+
+        mobileTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                mobileTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                const panel = tab.dataset.panel;
+                if (panel === 'latency') {
+                    latencyPanel.classList.add('mobile-active');
+                    speedPanel.classList.remove('mobile-active');
+                } else {
+                    speedPanel.classList.add('mobile-active');
+                    latencyPanel.classList.remove('mobile-active');
+                }
+
+                // Resize charts after panel switch
+                requestAnimationFrame(() => resizeCharts());
+            });
+        });
+
+        window.addEventListener('resize', () => {
+            resizeCharts();
+
+            // On desktop, ensure both panels visible
+            if (!isMobile()) {
+                latencyPanel.classList.remove('mobile-active');
+                speedPanel.classList.remove('mobile-active');
+            } else {
+                // Ensure one panel is active on mobile
+                if (!latencyPanel.classList.contains('mobile-active') && !speedPanel.classList.contains('mobile-active')) {
+                    latencyPanel.classList.add('mobile-active');
+                    mobileTabs[0].classList.add('active');
+                }
             }
         });
     </script>
