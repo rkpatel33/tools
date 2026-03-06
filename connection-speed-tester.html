@@ -326,25 +326,97 @@
         }
 
         @media (max-width: 540px) {
-            .latency-value {
-                font-size: 56px;
+            body {
+                padding: 0;
+                align-items: flex-start;
             }
 
-            .stats-section {
-                grid-template-columns: repeat(2, 1fr);
+            .dashboard {
+                flex-direction: column;
+                gap: 0;
             }
 
-            .stat {
-                border-bottom: 1px solid var(--border);
-            }
-
-            .stat:nth-child(2) {
+            .instrument {
+                max-width: none;
+                border-left: none;
                 border-right: none;
             }
 
-            .stat:nth-child(3),
-            .stat:nth-child(4) {
-                border-bottom: none;
+            .instrument:first-child {
+                border-top: none;
+            }
+
+            .header {
+                padding: 10px 16px;
+            }
+
+            .title {
+                font-size: 10px;
+            }
+
+            .control-btn {
+                width: 28px;
+                height: 28px;
+            }
+
+            .control-btn svg {
+                width: 12px;
+                height: 12px;
+            }
+
+            .display-section {
+                padding: 12px 16px 8px;
+            }
+
+            .latency-value {
+                font-size: 40px;
+            }
+
+            .latency-unit {
+                font-size: 11px;
+                margin-top: 2px;
+            }
+
+            .status-line {
+                margin-top: 4px;
+            }
+
+            .chart-section {
+                padding: 8px 12px;
+            }
+
+            .chart-label {
+                margin-bottom: 6px;
+                font-size: 9px;
+            }
+
+            .chart-container {
+                height: 80px;
+            }
+
+            .stats-section {
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .stat {
+                padding: 8px 4px;
+            }
+
+            .stat-value {
+                font-size: 14px;
+            }
+
+            .stat-label {
+                font-size: 8px;
+                margin-top: 2px;
+            }
+
+            .footer {
+                padding: 6px 16px;
+            }
+
+            .footer-text {
+                font-size: 9px;
             }
         }
     </style>
@@ -692,7 +764,7 @@
 
             const opts = {
                 width: speedChartEl.clientWidth || 580,
-                height: 140,
+                height: chartHeight(),
                 series: [
                     {},
                     {
@@ -801,7 +873,7 @@
 
             const opts = {
                 width: chartEl.clientWidth || 580,
-                height: 140,
+                height: chartHeight(),
                 series: [
                     {},
                     {
@@ -970,12 +1042,17 @@
             running ? stop() : start();
         });
 
+        function chartHeight() {
+            return window.innerWidth <= 540 ? 80 : 140;
+        }
+
         window.addEventListener('resize', () => {
+            const h = chartHeight();
             if (uplot) {
-                uplot.setSize({ width: chartEl.clientWidth, height: 140 });
+                uplot.setSize({ width: chartEl.clientWidth, height: h });
             }
             if (speedUplot) {
-                speedUplot.setSize({ width: speedChartEl.clientWidth, height: 140 });
+                speedUplot.setSize({ width: speedChartEl.clientWidth, height: h });
             }
         });
     </script>
