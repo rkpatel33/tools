@@ -182,6 +182,13 @@
         .corner-overlay.active { display: block; }
         .corner-overlay svg { width: 100%; height: 100%; }
 
+        .corner-polygon {
+            fill: color-mix(in srgb, var(--corner) 5%, transparent);
+            stroke: var(--corner);
+            stroke-width: 1;
+            stroke-dasharray: 4 2;
+        }
+
         /* Corner handles - precise crosshairs */
         .corner-handle {
             width: 20px;
@@ -409,7 +416,7 @@
         <div class="header">
             <div class="title">Document Scanner</div>
             <div class="status-readout">
-                <span class="version-hash">bb7b383</span>
+                <span class="version-hash" id="versionHash"></span>
                 <div class="status-led"></div>
                 <span class="status-text" id="status">Ready</span>
             </div>
@@ -436,7 +443,7 @@
 
             <div class="corner-overlay" id="cornerOverlay">
                 <svg id="cornerSvg">
-                    <polygon id="cornerPolygon" fill="rgba(239, 68, 68, 0.05)" stroke="#ef4444" stroke-width="1" stroke-dasharray="4 2"/>
+                    <polygon id="cornerPolygon" class="corner-polygon"/>
                 </svg>
                 <div class="corner-handle" id="handle-tl" data-corner="tl"></div>
                 <div class="corner-handle" id="handle-tr" data-corner="tr"></div>
@@ -525,6 +532,7 @@
     <script>
         // Constants
         const MAX_PROCESS_SIZE = 1500;
+        const CORNER_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--corner').trim();
 
         // State management
         let state = 'intro';
@@ -578,33 +586,28 @@
             localStorage.setItem('docscanner-interpolation', interpolationSelect.value);
         });
 
-        // CRITICAL: Set up Module.onRuntimeInitialized BEFORE loading OpenCV script
-        // This is the only reliable callback on iOS Safari
-        window.Module = {
-            onRuntimeInitialized: function() {
-                console.log('OpenCV ready via Module.onRuntimeInitialized');
-                cvReady = true;
-                setStatus('Ready');
-            }
-        };
-
-        // Also set cv callback as fallback for desktop browsers
-        window.cv = {
-            onRuntimeInitialized: function() {
-                if (cvReady) return;
-                console.log('OpenCV ready via cv.onRuntimeInitialized');
-                cvReady = true;
-                setStatus('Ready');
-            }
-        };
-
-        // Global callback fallback
-        window.onOpenCvReady = function() {
+        // OpenCV initialization - Module.onRuntimeInitialized is required for iOS Safari
+        // Must be set BEFORE loading the script
+        function onOpenCVReady() {
             if (cvReady) return;
-            console.log('OpenCV ready via onOpenCvReady');
+            console.log('OpenCV ready');
             cvReady = true;
             setStatus('Ready');
-        };
+        }
+
+        window.Module = { onRuntimeInitialized: onOpenCVReady };
+        window.cv = { onRuntimeInitialized: onOpenCVReady };
+        window.onOpenCvReady = onOpenCVReady;
+
+        // Fetch version hash from GitHub (non-blocking, cosmetic only)
+        fetch('https://api.github.com/repos/rkpatel33/tools/commits?path=document-scanner.html&per_page=1')
+            .then(r => r.json())
+            .then(commits => {
+                if (commits[0]?.sha) {
+                    document.getElementById('versionHash').textContent = commits[0].sha.slice(0, 7);
+                }
+            })
+            .catch(() => {});
 
         // NOW dynamically load OpenCV.js (after callbacks are set up)
         (function loadOpenCV() {
@@ -641,6 +644,11 @@
         });
 
         function setState(newState) {
+            // Reset zoom when leaving result state
+            if (state === 'result' && newState !== 'result') {
+                resetZoom();
+            }
+
             state = newState;
             body.setAttribute('data-state', state);
 
@@ -648,6 +656,17 @@
             cameraControls.style.display = state === 'camera' ? 'flex' : 'none';
             adjustControls.style.display = state === 'adjust' ? 'flex' : 'none';
             resultControls.style.display = state === 'result' ? 'flex' : 'none';
+        }
+
+        // Zoom state for result canvas (defined early for setState)
+        let zoomLevel = 1;
+        let panX = 0, panY = 0;
+
+        function resetZoom() {
+            zoomLevel = 1;
+            panX = 0;
+            panY = 0;
+            resultCanvas.style.transform = `translate(-50%, -50%) scale(${zoomLevel}) translate(${panX}px, ${panY}px)`;
         }
 
         function setStatus(text) {
@@ -790,7 +809,7 @@
 
             try {
                 const src = cv.imread(tempCanvas);
-                const detected = detectDocumentFast(src, w, h);
+                const detected = detectDocumentCorners(src, w, h, false);
                 src.delete();
 
                 if (detected) {
@@ -810,23 +829,28 @@
             }
         }
 
-        function detectDocumentFast(src, width, height) {
+        // Unified document detection - returns detected corners or fallback
+        // Set fallbackToDefault=true for adjust mode, false for live preview
+        function detectDocumentCorners(src, width, height, fallbackToDefault = true) {
+            const mats = [];
+            const cleanup = () => mats.forEach(m => { try { m.delete(); } catch(e) {} });
+
             try {
-                const gray = new cv.Mat();
+                const gray = new cv.Mat(); mats.push(gray);
                 cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-                const blurred = new cv.Mat();
+                const blurred = new cv.Mat(); mats.push(blurred);
                 cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
 
-                const edges = new cv.Mat();
+                const edges = new cv.Mat(); mats.push(edges);
                 cv.Canny(blurred, edges, 50, 150);
 
-                const dilated = new cv.Mat();
-                const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+                const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3)); mats.push(kernel);
+                const dilated = new cv.Mat(); mats.push(dilated);
                 cv.dilate(edges, dilated, kernel);
 
-                const contours = new cv.MatVector();
-                const hierarchy = new cv.Mat();
+                const contours = new cv.MatVector(); mats.push(contours);
+                const hierarchy = new cv.Mat(); mats.push(hierarchy);
                 cv.findContours(dilated, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
                 let result = null;
@@ -856,20 +880,30 @@
                     }
                 }
 
-                gray.delete();
-                blurred.delete();
-                edges.delete();
-                dilated.delete();
-                kernel.delete();
-                hierarchy.delete();
-                for (let i = 0; i < contours.size(); i++) {
-                    contours.get(i).delete();
-                }
-                contours.delete();
+                cleanup();
 
-                return result;
-            } catch (err) {
+                if (result) return result;
+
+                // Return default corners if requested and no document found
+                if (fallbackToDefault) {
+                    const margin = 0.1;
+                    return {
+                        tl: { x: width * margin, y: height * margin },
+                        tr: { x: width * (1 - margin), y: height * margin },
+                        br: { x: width * (1 - margin), y: height * (1 - margin) },
+                        bl: { x: width * margin, y: height * (1 - margin) }
+                    };
+                }
                 return null;
+            } catch (err) {
+                cleanup();
+                console.error('Detection error:', err);
+                return fallbackToDefault ? {
+                    tl: { x: width * 0.1, y: height * 0.1 },
+                    tr: { x: width * 0.9, y: height * 0.1 },
+                    br: { x: width * 0.9, y: height * 0.9 },
+                    bl: { x: width * 0.1, y: height * 0.9 }
+                } : null;
             }
         }
 
@@ -899,7 +933,7 @@
             }));
 
             // Dashed outline
-            ctx.strokeStyle = '#ef4444';
+            ctx.strokeStyle = CORNER_COLOR;
             ctx.lineWidth = 1;
             ctx.setLineDash([4, 2]);
 
@@ -1036,8 +1070,8 @@
 
                 const src = cv.imread(processCanvas);
                 console.log('cv.imread done');
-                const detectedCorners = detectDocument(src, processCanvas.width, processCanvas.height);
-                console.log('detectDocument done:', detectedCorners);
+                const detectedCorners = detectDocumentCorners(src, processCanvas.width, processCanvas.height, true);
+                console.log('detectDocumentCorners done:', detectedCorners);
                 src.delete();
 
                 corners = detectedCorners;
@@ -1054,92 +1088,6 @@
                 alert('Processing failed: ' + err.message);
                 setState('intro');
             }
-        }
-
-        function detectDocument(src, width, height) {
-            const margin = 0.1;
-            let defaultCorners = {
-                tl: { x: width * margin, y: height * margin },
-                tr: { x: width * (1 - margin), y: height * margin },
-                br: { x: width * (1 - margin), y: height * (1 - margin) },
-                bl: { x: width * margin, y: height * (1 - margin) }
-            };
-
-            try {
-                const gray = new cv.Mat();
-                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-
-                const blurred = new cv.Mat();
-                cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-
-                const edges = new cv.Mat();
-                cv.Canny(blurred, edges, 50, 150);
-
-                const dilated = new cv.Mat();
-                const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-                cv.dilate(edges, dilated, kernel);
-
-                const contours = new cv.MatVector();
-                const hierarchy = new cv.Mat();
-                cv.findContours(dilated, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                let bestContour = null;
-                let maxArea = 0;
-                const minArea = width * height * 0.1;
-
-                for (let i = 0; i < contours.size(); i++) {
-                    const contour = contours.get(i);
-                    const area = cv.contourArea(contour);
-
-                    if (area > minArea && area > maxArea) {
-                        const peri = cv.arcLength(contour, true);
-                        const approx = new cv.Mat();
-                        cv.approxPolyDP(contour, approx, 0.02 * peri, true);
-
-                        if (approx.rows === 4) {
-                            maxArea = area;
-                            bestContour = approx;
-                        } else {
-                            approx.delete();
-                        }
-                    }
-                }
-
-                gray.delete();
-                blurred.delete();
-                edges.delete();
-                dilated.delete();
-                kernel.delete();
-                hierarchy.delete();
-
-                if (bestContour) {
-                    const points = [];
-                    for (let i = 0; i < 4; i++) {
-                        points.push({
-                            x: bestContour.data32S[i * 2],
-                            y: bestContour.data32S[i * 2 + 1]
-                        });
-                    }
-                    bestContour.delete();
-
-                    for (let i = 0; i < contours.size(); i++) {
-                        contours.get(i).delete();
-                    }
-                    contours.delete();
-
-                    return orderPoints(points);
-                }
-
-                for (let i = 0; i < contours.size(); i++) {
-                    contours.get(i).delete();
-                }
-                contours.delete();
-
-            } catch (err) {
-                console.error('Detection error:', err);
-            }
-
-            return defaultCorners;
         }
 
         function orderPoints(points) {
@@ -1487,6 +1435,7 @@
         document.getElementById('applyBtn').addEventListener('click', applyPerspectiveTransform);
         document.getElementById('retakeBtn').addEventListener('click', () => {
             originalImageData = null;
+            corners = null;
             startCamera();
         });
         document.getElementById('saveBtn').addEventListener('click', saveImage);
@@ -1510,22 +1459,13 @@
             }
         });
 
-        // Pinch-to-zoom for result
-        let zoomLevel = 1;
-        let panX = 0, panY = 0;
+        // Pinch-to-zoom for result (zoomLevel, panX, panY, resetZoom defined above with setState)
         let lastTouchDist = 0;
         let lastTouchCenter = { x: 0, y: 0 };
         let isPinching = false;
 
         function updateResultTransform() {
             resultCanvas.style.transform = `translate(-50%, -50%) scale(${zoomLevel}) translate(${panX}px, ${panY}px)`;
-        }
-
-        function resetZoom() {
-            zoomLevel = 1;
-            panX = 0;
-            panY = 0;
-            updateResultTransform();
         }
 
         function getTouchDistance(touches) {
@@ -1589,14 +1529,6 @@
             }
             lastTap = now;
         });
-
-        const originalSetState = setState;
-        setState = function(newState) {
-            if (state === 'result' && newState !== 'result') {
-                resetZoom();
-            }
-            originalSetState(newState);
-        };
     </script>
 </body>
 </html>
